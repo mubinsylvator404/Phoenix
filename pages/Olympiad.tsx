@@ -80,7 +80,8 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
     try {
       const res = await fetch('/api/olympiad/settings');
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        const data = result.data || result;
         if (data.hero_title) setOlympiadTitle(data.hero_title);
         if (data.hero_description) setOlympiadDesc(data.hero_description);
       }
@@ -121,16 +122,17 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
     try {
       const res = await fetch('/api/olympiad/events');
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || `API failure: ${res.status}`);
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `API failure: ${res.status}`);
       }
-      const data = await res.json();
+      const result = await res.json();
+      const items = Array.isArray(result) ? result : (result.data || []);
       
-      if (Array.isArray(data)) {
-        setEvents(data);
+      if (Array.isArray(items)) {
+        setEvents(items);
         // Auto-select first event if none selected
-        if (data.length > 0 && !selectedEvent) {
-          setSelectedEvent(data[0]);
+        if (items.length > 0 && !selectedEvent) {
+          setSelectedEvent(items[0]);
         }
       }
       setLoadError(null);
@@ -158,9 +160,13 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         fetch(`/api/olympiad/videos?olympiad_id=${id}`)
       ]);
       
-      const sData = await sRes.json();
-      const rData = await rRes.json();
-      const vData = await vRes.json();
+      const sResult = await sRes.json();
+      const rResult = await rRes.json();
+      const vResult = await vRes.json();
+      
+      const sData = sResult.data || sResult;
+      const rData = rResult.data || rResult;
+      const vData = vResult.data || vResult;
       
       setSpeakers(Array.isArray(sData) ? sData : []);
       setResources(Array.isArray(rData) ? rData : []);
@@ -985,7 +991,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                   let result;
                   const contentType = res.headers.get("content-type");
                   if (contentType && contentType.includes("application/json")) {
-                    result = await res.json();
+                    const rawResult = await res.json();
+                    result = rawResult.data || rawResult;
+                    if (rawResult.success === false) throw new Error(rawResult.error || "Server error");
                   } else {
                     const text = await res.text();
                     console.error("Non-JSON response from server:", text);
@@ -1000,21 +1008,21 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                   if (adminMode === 'event') {
                     // Fetch fresh list
                     const freshRes = await fetch('/api/olympiad/events');
-                    const freshEvents = await freshRes.json();
-                    setEvents(freshEvents);
+                    const freshResult = await freshRes.json();
+                    const freshEvents = freshResult.data || freshResult;
+                    setEvents(Array.isArray(freshEvents) ? freshEvents : []);
                     
                     // If we just edited/created an event, ensure it's selected or updated
                     if (editingItem?.id) {
                       // Update selected event if it's the one we just edited
                       if (selectedEvent?.id === editingItem.id) {
-                        const updated = freshEvents.find((ev: any) => ev.id === editingItem.id);
+                        const updated = Array.isArray(freshEvents) ? freshEvents.find((ev: any) => ev.id === editingItem.id) : null;
                         if (updated) setSelectedEvent(updated);
                       }
                     } else if (result.id) {
                       // If it's a NEW event, maybe select it?
-                      const newcomer = freshEvents.find((ev: any) => ev.id === result.id);
+                      const newcomer = Array.isArray(freshEvents) ? freshEvents.find((ev: any) => ev.id === result.id) : null;
                       if (newcomer) {
-                        setEvents(freshEvents);
                         setSelectedEvent(newcomer);
                       }
                     }

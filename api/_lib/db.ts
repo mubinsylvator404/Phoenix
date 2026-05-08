@@ -5,18 +5,46 @@ const getEnv = (name: string) => {
   return val && val.trim().length > 0 ? val.trim() : null;
 };
 
-const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL') || 'https://gkycpsiqzwtbnomrnpog.supabase.co';
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL');
 const supabaseKey = 
   getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || 
   getEnv('SUPABASE_SERVICE_ROLE_KEY') || 
   getEnv('VITE_SUPABASE_ANON_KEY') || 
-  getEnv('SUPABASE_ANON_KEY') || 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWNwc2lxend0Ym5vbXJucG9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzQwNjYsImV4cCI6MjA4NzAxMDA2Nn0.ijOH4UnQ8k9ODCHRfd0bgqAR4DNAgK_pHVHK4kwy078';
+  getEnv('SUPABASE_ANON_KEY');
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Lazy initialization to prevent top-level crashes
+let supabaseClient: any = null;
+
+export function getSupabase() {
+  if (supabaseClient) return supabaseClient;
+  
+  const url = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL');
+  const key = 
+    getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || 
+    getEnv('SUPABASE_SERVICE_ROLE_KEY') || 
+    getEnv('VITE_SUPABASE_ANON_KEY') || 
+    getEnv('SUPABASE_ANON_KEY');
+
+  if (!url || !key) {
+    console.error('[Supabase] Missing credentials');
+    return null;
+  }
+  
+  try {
+    supabaseClient = createClient(url, key);
+    return supabaseClient;
+  } catch (err) {
+    console.error('[Supabase] Init Error:', err);
+    return null;
+  }
+}
 
 export async function handleUpsert(table: string, body: any) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error("Database connection could not be established. Check environment variables.");
+    }
     if (!body || typeof body !== 'object') {
       throw new Error("Invalid request body");
     }

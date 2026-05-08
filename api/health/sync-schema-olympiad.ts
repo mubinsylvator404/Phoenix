@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from '../_lib/db';
+import { getSupabase } from '../_lib/db';
 import fs from 'fs';
 import path from 'path';
 
@@ -7,10 +7,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'application/json');
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return res.status(405).json({ success: false, error: "Method Not Allowed" });
   }
 
   try {
+    const supabase = getSupabase();
     const possiblePaths = [
       path.join(process.cwd(), 'olympiad_db_schema.sql'),
       path.join(process.cwd(), 'api', 'olympiad_db_schema.sql'),

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from '../_lib/db';
+import { getSupabase } from '../_lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'application/json');
@@ -7,6 +7,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method } = req;
 
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return res.status(500).json({
+        success: false,
+        error: "Supabase environment variables are missing."
+      });
+    }
+
     switch (method) {
       case 'GET':
         const { data: getData, error: getError } = await supabase
@@ -16,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .single();
         
         if (getError && getError.code !== 'PGRST116') throw getError; // PGRST116 is no rows found
-        return res.status(200).json(getData || { id: 'default' });
+        return res.status(200).json({ success: true, data: getData || { id: 'default' } });
 
       case 'POST':
         const { data: postData, error: postError } = await supabase
@@ -25,13 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .select();
         
         if (postError) throw postError;
-        return res.status(200).json(postData ? postData[0] : {});
+        return res.status(200).json({ success: true, data: postData ? postData[0] : {} });
 
       default:
-        return res.status(405).json({ error: `Method ${method} Not Allowed` });
+        return res.status(405).json({ success: false, error: `Method ${method} Not Allowed` });
     }
   } catch (error: any) {
     console.error('[API Olympiad Settings] Error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message || "Internal Server Error" });
   }
 }
