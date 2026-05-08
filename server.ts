@@ -76,6 +76,22 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Path normalization middleware for Vercel
+// Vercel sometimes strips the /api prefix when routing to api/index.ts
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/')) return next();
+  
+  const apiPaths = ['/olympiad', '/health', '/students', '/syllabus', '/analytics', '/location', '/omr', '/teachers', '/video-classes', '/attendance'];
+  if (apiPaths.some(p => req.url.startsWith(p))) {
+    const oldUrl = req.url;
+    req.url = '/api' + req.url;
+    console.log(`[Server] Normalized path: ${oldUrl} -> ${req.url}`);
+    // Clear cached parsed URL to force Express to re-evaluate req.path
+    (req as any)._parsedUrl = undefined;
+  }
+  next();
+});
+
 // Debug middleware to see what's actually hitting the server
 app.use((req, res, next) => {
   if (req.url.startsWith('/api')) {
@@ -246,13 +262,28 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
         return res.status(400).json({ error: "Invalid request body" });
       }
       const payload = { ...body };
-      if (payload.id && typeof payload.id === 'string' && (payload.id.startsWith('e') || payload.id.startsWith('temp-'))) {
+      if (payload.id && typeof payload.id === 'string' && (payload.id.startsWith('e') || payload.id.startsWith('temp-') || payload.id.startsWith('speaker-') || payload.id.startsWith('resource-') || payload.id.startsWith('video-'))) {
         delete payload.id;
       }
       const { data, error } = await supabase.from(table).upsert(payload, { onConflict: 'id' }).select();
       if (error) {
         console.error(`[Olympiad] ${table} Save Error:`, error);
-        return res.status(500).json({ error: error.message, details: error.details });
+        
+        // Check for missing table error (PostgREST code 42P01)
+        if (error.code === '42P01') {
+          return res.status(404).json({ 
+            error: "Table not found", 
+            tableMissing: true, 
+            details: `The database table '${table}' does not exist. Please run 'Master Database Restore' in the Admin Dashboard.`,
+            originalError: error.message
+          });
+        }
+        
+        return res.status(500).json({ 
+          error: error.message, 
+          details: error.details,
+          code: error.code
+        });
       }
       return res.json(data ? data[0] : {});
     } catch (error: any) {
@@ -1011,19 +1042,6 @@ app.post("/api/omr/scan", async (req, res) => {
 
 
   // --- Static Asset Serving & SPA Fallback ---
-  // Catch-all for missing API routes (handles both /api/ and potentially stripped / paths in Vercel)
-  // Using a regular expression to avoid path-to-regexp version compatibility issues
-  app.all(/^\/api(\/.*)?$/, (req, res) => {
-    if (res.headersSent) return;
-    console.error(`[Server] 404 API Route: ${req.method} ${req.originalUrl}`);
-    return res.status(404).json({ 
-      error: "API route not found", 
-      path: req.originalUrl,
-      method: req.method,
-      tip: "Please verify that the endpoint exists and the request method matches."
-    });
-  });
-
   // 1. Vite middleware for development (Only if not effective production and NOT on Vercel)
   if (!isEffectiveProd && !process.env.VERCEL) {
     try {
@@ -1093,6 +1111,30 @@ app.post("/api/omr/scan", async (req, res) => {
         </body>
       </html>
     `);
+  });
+
+  // FINAL CATCH-ALL for any missed API requests or non-GET requests
+  // This prevents HTML responses for failed POST/PUT/DELETE calls
+  app.all(/(.*)/, (req, res, next) => {
+    if (res.headersSent) return;
+    
+    // Improved detection for API requests or requests that should never return HTML
+    const isApiRequest = req.path.startsWith('/api/') || 
+                         req.url.startsWith('/api/') || 
+                         req.method !== 'GET' ||
+                         req.headers.accept?.includes('application/json');
+
+    if (isApiRequest) {
+      console.warn(`[Server] Unhandled API route: ${req.method} ${req.url} (Path: ${req.path})`);
+      return res.status(404).json({
+        error: "Route not found",
+        method: req.method,
+        path: req.path,
+        url: req.url,
+        tip: "Ensure the database schema is synced in the Admin Dashboard and the endpoint is correctly defined."
+      });
+    }
+    next();
   });
 
   // Global Error Handler
