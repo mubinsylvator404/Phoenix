@@ -45,6 +45,15 @@ export default async function handler(req: any, res: any) {
           external_link TEXT,
           created_at TIMESTAMPTZ DEFAULT now()
         );
+
+        -- Explicitly ensure external_link exists
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='external_link') THEN
+            ALTER TABLE olympiad_events ADD COLUMN external_link TEXT;
+          END IF;
+        END $$;
+
         CREATE TABLE IF NOT EXISTS olympiad_speakers (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
@@ -57,6 +66,15 @@ export default async function handler(req: any, res: any) {
           external_link TEXT,
           created_at TIMESTAMPTZ DEFAULT now()
         );
+
+        -- Explicitly ensure external_link exists for speakers
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_speakers' AND column_name='external_link') THEN
+            ALTER TABLE olympiad_speakers ADD COLUMN external_link TEXT;
+          END IF;
+        END $$;
+
         CREATE TABLE IF NOT EXISTS olympiad_resources (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
@@ -66,6 +84,7 @@ export default async function handler(req: any, res: any) {
           url TEXT,
           created_at TIMESTAMPTZ DEFAULT now()
         );
+
         CREATE TABLE IF NOT EXISTS olympiad_videos (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
@@ -74,12 +93,16 @@ export default async function handler(req: any, res: any) {
           url TEXT,
           created_at TIMESTAMPTZ DEFAULT now()
         );
+
         CREATE TABLE IF NOT EXISTS olympiad_settings (
           id TEXT PRIMARY KEY,
           hero_title TEXT,
           hero_description TEXT,
           updated_at TIMESTAMPTZ DEFAULT now()
         );
+
+        -- Reload PostgREST schema cache if possible
+        NOTIFY pgrst, 'reload schema';
       `;
     }
 
