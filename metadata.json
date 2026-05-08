@@ -1,0 +1,7 @@
+{
+  "name": "Phoenix Edu Care",
+  "description": "A comprehensive HSC Science coaching management platform featuring performance heatmaps, student/admin dashboards, and AI-powered academic insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

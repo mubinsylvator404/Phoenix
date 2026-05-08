@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phoenix Edu Care - HSC Science Excellence</title>
+    <script>
+      // Defensive lock to prevent window.fetch reassignment
+      try {
+        Object.defineProperty(window, 'fetch', {
+          value: window.fetch,
+          writable: false,
+          configurable: false
+        });
+      } catch (e) {
+        console.warn('Could not lock window.fetch:', e);
+      }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-deep: #000814;
+        --bg-card: #001d3d;
+        --accent-gold: #FFD700;
+        --accent-deep-blue: #003566;
+        --accent-blue: #007BFF;
+      }
+      body { 
+        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; 
+        margin: 0;
+        padding: 0;
+      }
+      .glass-card {
+        background: rgba(0, 29, 61, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 215, 0, 0.1);
+        transition: all 0.3s ease-in-out;
+      }
+      .glass-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(255, 215, 0, 0.4);
+        box-shadow: 0 10px 30px -10px rgba(255, 215, 0, 0.3);
+      }
+      .text-gradient {
+        background: linear-gradient(to right, #FFD700, #FFC107);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .glow-button {
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+        transition: all 0.3s ease;
+      }
+      .glow-button:hover {
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+        transform: scale(1.05);
+      }
+      /* Custom scrollbar for horizontal scrolling */
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      body {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+    <meta name="google-site-verification" content="SRUEoDyNRhmxRuzE8HWmogdmUlVFhGssml_Q5Zkbp-M" />
+</head>
+  <body class="bg-slate-50 text-slate-900 transition-colors duration-200">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
