@@ -302,6 +302,24 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   );
 
   // Components
+  const getDirectImageUrl = (url: string) => {
+    if (!url) return '';
+    try {
+      if (url.includes('drive.google.com')) {
+        let fileId = '';
+        if (url.includes('/d/')) {
+          fileId = url.split('/d/')[1].split('/')[0];
+        } else if (url.includes('id=')) {
+          fileId = url.split('id=')[1].split('&')[0];
+        }
+        if (fileId) return `https://lh3.googleusercontent.com/d/${fileId}`;
+      }
+      return url;
+    } catch (e) {
+      return url;
+    }
+  };
+
   const HeroSection = () => (
     <div className="relative min-h-[60vh] flex items-center justify-center overflow-hidden pt-20">
       {isAdmin && (
@@ -343,7 +361,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="text-lg md:text-2xl text-slate-400 font-medium tracking-tight max-w-2xl mx-auto"
+          className="text-base md:text-[22px] text-slate-300 font-medium tracking-tight max-w-4xl mx-auto leading-relaxed md:leading-[1.6]"
         >
           {olympiadDesc}
         </motion.p>
@@ -412,7 +430,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           >
             <div className="aspect-video relative overflow-hidden">
               <img 
-                src={event.banner_image || 'https://images.unsplash.com/photo-1544391496-1ca7c97457cd?auto=format&fit=crop&q=80'} 
+                src={getDirectImageUrl(event.banner_image) || 'https://images.unsplash.com/photo-1544391496-1ca7c97457cd?auto=format&fit=crop&q=80'} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                 alt={event.title} 
               />
@@ -510,7 +528,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
 
         {/* Event Hero */}
         <div className="relative h-[400px] overflow-hidden">
-          <img src={selectedEvent.banner_image} className="w-full h-full object-cover opacity-50" alt="" />
+          <img src={getDirectImageUrl(selectedEvent.banner_image)} className="w-full h-full object-cover opacity-50" alt="" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent" />
           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-7xl px-6 text-center space-y-4">
             {isAdmin && (
@@ -530,7 +548,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
               </div>
             )}
             <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">{selectedEvent.title}</h1>
-            <p className="text-slate-400 max-w-2xl mx-auto text-sm leading-relaxed">{selectedEvent.description}</p>
+            <p className="text-slate-300 max-w-3xl mx-auto text-base md:text-lg leading-relaxed font-medium">{selectedEvent.description}</p>
             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
               {selectedEvent.registration_url && (
                 <a 
@@ -627,7 +645,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       )}
                       <div className="relative">
                         <div className="aspect-square rounded-2xl overflow-hidden mb-6 bg-slate-800">
-                          <img src={speaker.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt={speaker.name} />
+                          <img src={getDirectImageUrl(speaker.image)} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt={speaker.name} />
                         </div>
                         <div className="absolute -bottom-4 right-4 w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-xl">
                           <GraduationCap size={20} />
