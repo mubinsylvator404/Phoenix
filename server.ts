@@ -82,7 +82,10 @@ app.use((req, res, next) => {
   if (req.url.startsWith('/api/')) return next();
   
   const apiPaths = ['/olympiad', '/health', '/students', '/syllabus', '/analytics', '/location', '/omr', '/teachers', '/video-classes', '/attendance'];
-  if (apiPaths.some(p => req.url.startsWith(p))) {
+  // Only normalize to /api/ if it's likely an API call (not a browser navigation to a page)
+  const isPageNavigation = req.headers.accept?.includes('text/html');
+  
+  if (apiPaths.some(p => req.url.startsWith(p)) && !isPageNavigation) {
     const oldUrl = req.url;
     req.url = '/api' + req.url;
     console.log(`[Server] Normalized path: ${oldUrl} -> ${req.url}`);
@@ -227,6 +230,10 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
           sql: sql
         });
       }
+      
+      // Explicitly reload schema after schema changes
+      await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
+      
       res.json({ success: true, message: "Olympiad tables synced successfully." });
     } catch (err: any) {
       res.status(500).json({ error: "Olympiad Sync Error", details: err.message });
@@ -309,9 +316,41 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
   app.post("/api/olympiad/resources", (req, res) => handleUpsert('olympiad_resources', req.body, res));
   app.post("/api/olympiad/videos", (req, res) => handleUpsert('olympiad_videos', req.body, res));
 
-  app.delete("/api/olympiad/events/:id", async (req, res) => {
+  app.delete("/api/olympiad/events", async (req, res) => {
     try {
-      const { error } = await supabase.from('olympiad_events').delete().eq('id', req.params.id);
+      const id = req.params['id'] || req.query['id'];
+      if (!id) return res.status(400).json({ error: "ID is required" });
+      const { error } = await supabase.from('olympiad_events').delete().eq('id', id);
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.delete("/api/olympiad/speakers", async (req, res) => {
+    try {
+      const id = req.params['id'] || req.query['id'];
+      if (!id) return res.status(400).json({ error: "ID is required" });
+      const { error } = await supabase.from('olympiad_speakers').delete().eq('id', id);
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.delete("/api/olympiad/resources", async (req, res) => {
+    try {
+      const id = req.params['id'] || req.query['id'];
+      if (!id) return res.status(400).json({ error: "ID is required" });
+      const { error } = await supabase.from('olympiad_resources').delete().eq('id', id);
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.delete("/api/olympiad/videos", async (req, res) => {
+    try {
+      const id = req.params['id'] || req.query['id'];
+      if (!id) return res.status(400).json({ error: "ID is required" });
+      const { error } = await supabase.from('olympiad_videos').delete().eq('id', id);
       if (error) throw error;
       res.json({ success: true });
     } catch (error: any) { res.status(500).json({ error: error.message }); }

@@ -85,6 +85,26 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncDatabase = async () => {
+    setIsSyncing(true);
+    try {
+      const resp = await fetch('/api/health/sync-schema-olympiad', { method: 'POST' });
+      const data = await resp.json();
+      if (data.success) {
+        alert("Database schema synced successfully! Please refresh the page if you still see errors.");
+      } else {
+        throw new Error(data.error || "Sync failed");
+      }
+    } catch (err: any) {
+      console.error("Database sync failed:", err);
+      alert("Failed to sync database: " + (err.message || String(err)));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSaveHeroSettings = async () => {
     setIsSavingHero(true);
     try {
@@ -893,13 +913,22 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold h-32" 
                   />
                 </div>
-                <button 
-                  onClick={handleSaveHeroSettings}
-                  disabled={isSavingHero}
-                  className={`w-full py-5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest transition-all ${isSavingHero ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-600 active:scale-95'}`}
-                >
-                  {isSavingHero ? 'Saving...' : 'Apply & Save Changes'}
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleSyncDatabase}
+                    disabled={isSyncing}
+                    className="flex-1 py-5 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                  >
+                    {isSyncing ? 'Syncing...' : 'Sync DB'}
+                  </button>
+                  <button 
+                    onClick={handleSaveHeroSettings}
+                    disabled={isSavingHero}
+                    className={`flex-[2] py-5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest transition-all ${isSavingHero ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-600 active:scale-95'}`}
+                  >
+                    {isSavingHero ? 'Saving...' : 'Apply & Save Changes'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

@@ -45,11 +45,15 @@ export default async function handler(req: any, res: any) {
           created_at TIMESTAMPTZ DEFAULT now()
         );
 
-        -- Explicitly ensure external_link exists
+        -- Explicitly ensure external_link exists for events
         DO $$ 
         BEGIN 
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='external_link') THEN
             ALTER TABLE olympiad_events ADD COLUMN external_link TEXT;
+          END IF;
+          -- Also ensure subtitle/subtitle for hero if needed
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='subtitle') THEN
+            ALTER TABLE olympiad_events ADD COLUMN subtitle TEXT;
           END IF;
         END $$;
 
@@ -125,8 +129,11 @@ export default async function handler(req: any, res: any) {
           END IF;
         END $$;
 
-        -- Reload PostgREST schema cache if possible
+        -- Reload PostgREST schema cache
         NOTIFY pgrst, 'reload schema';
+        
+        -- Secondary reload method via pg_temp or similar if needed, 
+        -- but NOTIFY is standard for Supabase.
       `;
     }
 
