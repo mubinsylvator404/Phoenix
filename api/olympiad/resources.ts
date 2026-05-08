@@ -3,18 +3,12 @@ import { getSupabase, handleUpsert } from '../_lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'application/json');
-
   const { method } = req;
   const { olympiad_id, id } = req.query;
 
   try {
     const supabase = getSupabase();
-    if (!supabase) {
-      return res.status(500).json({
-        success: false,
-        error: "Supabase environment variables are missing."
-      });
-    }
+    if (!supabase) throw new Error('Database connection failed');
 
     switch (method) {
       case 'GET':
@@ -29,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, data: postData });
 
       case 'DELETE':
-        if (!id) return res.status(400).json({ success: false, error: "Missing ID" });
+        if (!id) return res.status(400).json({ success: false, error: 'Missing ID' });
         const { error: delError } = await supabase.from('olympiad_resources').delete().eq('id', id as string);
         if (delError) throw delError;
         return res.status(200).json({ success: true });
@@ -38,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ success: false, error: `Method ${method} Not Allowed` });
     }
   } catch (error: any) {
-    console.error('[API Olympiad Resources] Error:', error);
-    return res.status(500).json({ success: false, error: error.message || "Internal Server Error" });
+    console.error('[API Resources] Error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Internal Server Error' });
   }
 }

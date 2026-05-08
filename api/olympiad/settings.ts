@@ -3,17 +3,11 @@ import { getSupabase } from '../_lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'application/json');
-
   const { method } = req;
 
   try {
     const supabase = getSupabase();
-    if (!supabase) {
-      return res.status(500).json({
-        success: false,
-        error: "Supabase environment variables are missing."
-      });
-    }
+    if (!supabase) throw new Error('Database connection failed');
 
     switch (method) {
       case 'GET':
@@ -22,8 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .select('*')
           .eq('id', 'default')
           .single();
-        
-        if (getError && getError.code !== 'PGRST116') throw getError; // PGRST116 is no rows found
+        if (getError && getError.code !== 'PGRST116') throw getError;
         return res.status(200).json({ success: true, data: getData || { id: 'default' } });
 
       case 'POST':
@@ -31,7 +24,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('olympiad_settings')
           .upsert({ id: 'default', ...req.body })
           .select();
-        
         if (postError) throw postError;
         return res.status(200).json({ success: true, data: postData ? postData[0] : {} });
 
@@ -39,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ success: false, error: `Method ${method} Not Allowed` });
     }
   } catch (error: any) {
-    console.error('[API Olympiad Settings] Error:', error);
-    return res.status(500).json({ success: false, error: error.message || "Internal Server Error" });
+    console.error('[API Settings] Error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Internal Server Error' });
   }
 }

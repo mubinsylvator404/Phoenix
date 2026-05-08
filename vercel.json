@@ -4,56 +4,8 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/api/health/sync-all",
-      "destination": "/api/health/sync-all.ts"
-    },
-    {
-      "source": "/api/health/sync-schema-olympiad",
-      "destination": "/api/health/sync-schema-olympiad.ts"
-    },
-    {
-      "source": "/api/health/:path*",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/api/olympiad/events/:id",
-      "destination": "/api/olympiad/events.ts?id=:id"
-    },
-    {
-      "source": "/api/olympiad/events",
-      "destination": "/api/olympiad/events.ts"
-    },
-    {
-      "source": "/api/olympiad/speakers/:id",
-      "destination": "/api/olympiad/speakers.ts?id=:id"
-    },
-    {
-      "source": "/api/olympiad/speakers",
-      "destination": "/api/olympiad/speakers.ts"
-    },
-    {
-      "source": "/api/olympiad/resources/:id",
-      "destination": "/api/olympiad/resources.ts?id=:id"
-    },
-    {
-      "source": "/api/olympiad/resources",
-      "destination": "/api/olympiad/resources.ts"
-    },
-    {
-      "source": "/api/olympiad/videos/:id",
-      "destination": "/api/olympiad/videos.ts?id=:id"
-    },
-    {
-      "source": "/api/olympiad/videos",
-      "destination": "/api/olympiad/videos.ts"
-    },
-    {
-      "source": "/api/olympiad/settings",
-      "destination": "/api/olympiad/settings.ts"
-    },
-    {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "destination": "/api/$1"
     },
     {
       "source": "/(.*)",
