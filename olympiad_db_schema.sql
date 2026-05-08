@@ -13,15 +13,31 @@ CREATE TABLE IF NOT EXISTS olympiad_events (
   status TEXT CHECK (status IN ('Upcoming', 'Running', 'Completed')) DEFAULT 'Upcoming',
   registration_url TEXT,
   external_link TEXT,
+  target_group TEXT,
+  syllabus TEXT,
+  venue TEXT,
+  deadline TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure external_link column exists for old tables
+-- Ensure columns exist for old tables
 DO $$ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='external_link') THEN
     ALTER TABLE olympiad_events ADD COLUMN external_link TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='target_group') THEN
+    ALTER TABLE olympiad_events ADD COLUMN target_group TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='syllabus') THEN
+    ALTER TABLE olympiad_events ADD COLUMN syllabus TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='venue') THEN
+    ALTER TABLE olympiad_events ADD COLUMN venue TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_events' AND column_name='deadline') THEN
+    ALTER TABLE olympiad_events ADD COLUMN deadline TEXT;
   END IF;
 END $$;
 

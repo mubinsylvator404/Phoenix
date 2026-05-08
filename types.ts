@@ -334,6 +334,10 @@ export interface OlympiadEvent {
   banner_image?: string;
   date: string;
   status: 'Upcoming' | 'Running' | 'Completed';
+  target_group?: string; // e.g. "SSC to HSC"
+  syllabus?: string;
+  venue?: string;
+  deadline?: string;
   registration_url?: string;
   external_link?: string;
   created_at: string;

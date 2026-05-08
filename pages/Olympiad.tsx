@@ -27,6 +27,8 @@ import {
   Microscope,
   Stethoscope,
   PenTool,
+  MapPin,
+  BookOpen,
   X
 } from 'lucide-react';
 import { UserRole, OlympiadEvent, OlympiadSpeaker, OlympiadResource, OlympiadVideo } from '../types';
@@ -360,33 +362,31 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           </span>
         </motion.h1>
         
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-base md:text-xl text-slate-300/80 font-normal tracking-wide max-w-3xl mx-auto leading-relaxed md:leading-8"
-        >
-          {olympiadDesc}
-        </motion.p>
-        
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex flex-wrap items-center justify-center gap-4 pt-4"
+          transition={{ delay: 0.2, duration: 0.8 }}
+          className="relative max-w-3xl mx-auto group"
         >
-          <button 
-            className="px-10 py-5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-orange-600 transition-all shadow-[0_10px_40px_rgba(249,115,22,0.3)] hover:-translate-y-1 active:scale-95"
-          >
-            Register Now
-          </button>
-          <button 
-            onClick={() => document.getElementById('events-section')?.scrollIntoView({ behavior: 'smooth' })}
-            className="px-10 py-5 bg-white/5 backdrop-blur-xl border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-white/10 transition-all hover:-translate-y-1 active:scale-95"
-          >
-            Explore Events
-          </button>
+          {/* Cinematic Background Glow */}
+          <div className="absolute -inset-x-20 -inset-y-10 bg-orange-500/5 blur-[100px] rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
+          
+          {/* Futuristic Glass Container */}
+          <div className="relative px-8 py-10 md:px-12 backdrop-blur-sm bg-white/[0.02] border border-white/5 rounded-[40px] overflow-hidden shadow-2xl shadow-orange-500/5">
+            {/* Corner Decorative Accents */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-white/10 rounded-tl-[40px]" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b border-r border-white/10 rounded-br-[40px]" />
+            
+            <p className="relative z-10 text-base md:text-[1.3rem] text-slate-200/90 font-medium tracking-tight leading-relaxed md:leading-[1.8]">
+              {olympiadDesc}
+            </p>
+            
+            {/* Subtle glow line at the bottom */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-[1px] bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
+          </div>
         </motion.div>
+        
+
       </div>
     </div>
   );
@@ -534,11 +534,12 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         <div className="relative h-[400px] overflow-hidden">
           <img 
             src={getDirectImageUrl(selectedEvent.banner_image)} 
-            className="w-full h-full object-cover opacity-50" 
+            className="w-full h-full object-cover opacity-30 scale-110 blur-[2px]" 
             alt="" 
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/60 to-[#0A0A0A]/40" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#0A0A0A_100%)] opacity-60" />
           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-7xl px-6 text-center space-y-4">
             {isAdmin && (
               <div className="flex justify-center gap-3 mb-6">
@@ -557,7 +558,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
               </div>
             )}
             <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">{selectedEvent.title}</h1>
-            <p className="text-slate-300/90 max-w-4xl mx-auto text-base md:text-xl leading-relaxed font-normal tracking-wide">{selectedEvent.description}</p>
+            {selectedEvent.subtitle && (
+              <p className="text-slate-300/90 max-w-4xl mx-auto text-base md:text-xl leading-relaxed font-normal tracking-wide">{selectedEvent.subtitle}</p>
+            )}
             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
               {selectedEvent.registration_url && (
                 <a 
@@ -613,6 +616,94 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         <div className="max-w-7xl mx-auto px-6 py-16">
           {activeTab === 'details' && (
             <div className="space-y-24">
+              {/* Event Overview Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                {/* Description Card */}
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="lg:col-span-2 space-y-8"
+                >
+                  <div className="relative group">
+                    {/* Background Blur Accent */}
+                    <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-blue-500/20 rounded-[32px] blur-2xl opacity-50 group-hover:opacity-75 transition duration-1000" />
+                    
+                    <div className="relative bg-white/[0.03] backdrop-blur-3xl rounded-[32px] border border-white/10 p-8 md:p-12 shadow-2xl overflow-hidden">
+                      {/* Decorative elements */}
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 blur-[100px] -mr-32 -mt-32" />
+                      
+                      <div className="relative space-y-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30 font-bold">
+                            <Target size={24} />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Event Overview</h3>
+                            <div className="h-1 w-12 bg-orange-500 rounded-full mt-1" />
+                          </div>
+                        </div>
+                        
+                        <div className="prose prose-invert max-w-none">
+                          <div className="text-lg md:text-xl text-slate-300 leading-[1.8] font-medium tracking-tight whitespace-pre-wrap break-words">
+                            {selectedEvent.description}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Quick Info Grid */}
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between px-4">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Quick Information</h4>
+                    <Zap size={14} className="text-orange-500 animate-pulse" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    {[
+                      { label: 'Group / Category', value: selectedEvent.target_group || 'All Groups', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                      { label: 'Event Date', value: selectedEvent.date || 'To be announced', icon: Calendar, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+                      { label: 'Registration Deadline', value: selectedEvent.deadline || 'Limited Seats', icon: Clock, color: 'text-red-400', bg: 'bg-red-400/10' },
+                      { label: 'Event Venue', value: selectedEvent.venue || 'Virtual / Kulaura', icon: MapPin, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                    ].map((item, i) => (
+                      <div key={i} className="bg-white/[0.03] border border-white/10 p-6 rounded-[24px] hover:bg-white/[0.08] hover:border-white/20 transition-all group relative overflow-hidden">
+                         <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rotate-45 translate-x-8 -translate-y-8" />
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className={`w-12 h-12 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500`}>
+                            <item.icon size={22} />
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{item.label}</p>
+                            <p className="text-sm font-bold text-white uppercase tracking-tight leading-tight">{item.value}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedEvent.syllabus && (
+                    <div className="relative group">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500/20 to-transparent rounded-[32px] blur opacity-50" />
+                      <div className="relative bg-gradient-to-br from-orange-500/[0.08] to-transparent border border-orange-500/20 p-8 rounded-[32px] space-y-5">
+                        <div className="flex items-center gap-3 text-orange-500">
+                          <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                            <BookOpen size={16} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Syllabus & Topics</span>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-[1.8] font-medium tracking-tight bg-black/20 p-4 rounded-xl border border-white/5 italic">
+                          "{selectedEvent.syllabus}"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+
               {/* Speakers */}
               <div className="space-y-12">
                 <div className="flex items-center justify-between">
@@ -1100,12 +1191,28 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       <input name="external_link" defaultValue={editingItem?.external_link} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" placeholder="https://..." />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Status</label>
-                      <select name="status" defaultValue={editingItem?.status} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold">
-                        <option value="Upcoming">Upcoming</option>
-                        <option value="Running">Running</option>
-                        <option value="Completed">Completed</option>
-                      </select>
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Status</label>
+                       <select name="status" defaultValue={editingItem?.status} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold">
+                         <option value="Upcoming">Upcoming</option>
+                         <option value="Running">Running</option>
+                         <option value="Completed">Completed</option>
+                       </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Target Group (e.g. SSC/HSC)</label>
+                      <input name="target_group" defaultValue={editingItem?.target_group} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" placeholder="SSC to HSC" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Venue</label>
+                      <input name="venue" defaultValue={editingItem?.venue} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" placeholder="Kulaura, Moulvibazar" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Registration Deadline</label>
+                      <input name="deadline" defaultValue={editingItem?.deadline} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" placeholder="20 May 2026" />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Syllabus / Short Topics</label>
+                       <textarea name="syllabus" defaultValue={editingItem?.syllabus} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold h-20" placeholder="Basic Science, IQ, Reasoning..." />
                     </div>
                   </>
                 )}
