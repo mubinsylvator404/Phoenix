@@ -312,7 +312,10 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         } else if (url.includes('id=')) {
           fileId = url.split('id=')[1].split('&')[0];
         }
-        if (fileId) return `https://lh3.googleusercontent.com/d/${fileId}`;
+        if (fileId) {
+          // Use thumbnail endpoint which is often more reliable for previews
+          return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+        }
       }
       return url;
     } catch (e) {
@@ -361,7 +364,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="text-base md:text-[22px] text-slate-300 font-medium tracking-tight max-w-4xl mx-auto leading-relaxed md:leading-[1.6]"
+          className="text-base md:text-xl text-slate-300/80 font-normal tracking-wide max-w-3xl mx-auto leading-relaxed md:leading-8"
         >
           {olympiadDesc}
         </motion.p>
@@ -433,6 +436,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                 src={getDirectImageUrl(event.banner_image) || 'https://images.unsplash.com/photo-1544391496-1ca7c97457cd?auto=format&fit=crop&q=80'} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                 alt={event.title} 
+                referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
               <div className="absolute top-4 right-4 flex gap-2">
@@ -528,7 +532,12 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
 
         {/* Event Hero */}
         <div className="relative h-[400px] overflow-hidden">
-          <img src={getDirectImageUrl(selectedEvent.banner_image)} className="w-full h-full object-cover opacity-50" alt="" />
+          <img 
+            src={getDirectImageUrl(selectedEvent.banner_image)} 
+            className="w-full h-full object-cover opacity-50" 
+            alt="" 
+            referrerPolicy="no-referrer"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent" />
           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-7xl px-6 text-center space-y-4">
             {isAdmin && (
@@ -548,7 +557,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
               </div>
             )}
             <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">{selectedEvent.title}</h1>
-            <p className="text-slate-300 max-w-3xl mx-auto text-base md:text-lg leading-relaxed font-medium">{selectedEvent.description}</p>
+            <p className="text-slate-300/90 max-w-4xl mx-auto text-base md:text-xl leading-relaxed font-normal tracking-wide">{selectedEvent.description}</p>
             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
               {selectedEvent.registration_url && (
                 <a 
@@ -645,7 +654,12 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       )}
                       <div className="relative">
                         <div className="aspect-square rounded-2xl overflow-hidden mb-6 bg-slate-800">
-                          <img src={getDirectImageUrl(speaker.image)} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt={speaker.name} />
+                          <img 
+                            src={getDirectImageUrl(speaker.image)} 
+                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" 
+                            alt={speaker.name} 
+                            referrerPolicy="no-referrer"
+                          />
                         </div>
                         <div className="absolute -bottom-4 right-4 w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-xl">
                           <GraduationCap size={20} />

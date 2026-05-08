@@ -1114,16 +1114,15 @@ app.post("/api/omr/scan", async (req, res) => {
   }
 
   // 3. Fallback for SPAs
-  // Use a regex for the catch-all to bypass path-to-regexp string issues in Express 5
-  app.get(/^(?!\/api\/).*/, (req, res, next) => {
-    // Only handle GET requests for the SPA fallback
-    if (req.method !== 'GET') return next();
-
-    // DO NOT serve index.html for file-like requests that were missed by static middleware
-    if (req.path.includes('.')) {
+  app.get('*all', (req, res, next) => {
+    // Skip if it's an API request
+    if (req.path.startsWith('/api/')) return next();
+    
+    // Skip if it's a file request (has a dot and is not .html)
+    if (req.path.includes('.') && !req.path.endsWith('.html')) {
       return next();
     }
-    
+
     // In production, serve index.html from dist
     if (isEffectiveProd && fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
@@ -1132,7 +1131,7 @@ app.post("/api/omr/scan", async (req, res) => {
     // Default to the source index if available or a minimal fallback
     const rootIndex = path.join(process.cwd(), 'index.html');
     if (fs.existsSync(rootIndex)) {
-       return res.sendFile(rootIndex);
+      return res.sendFile(rootIndex);
     }
 
     // Otherwise, serve a basic HTML that loads the React entry point
