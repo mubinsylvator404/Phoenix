@@ -98,6 +98,33 @@ export default async function handler(req: any, res: any) {
           updated_at TIMESTAMPTZ DEFAULT now()
         );
 
+        -- Enable RLS and add basic policies
+        ALTER TABLE olympiad_events ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE olympiad_speakers ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE olympiad_resources ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE olympiad_videos ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE olympiad_settings ENABLE ROW LEVEL SECURITY;
+
+        -- Allow ALL to simplify (can be hardened later)
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_events') THEN
+            CREATE POLICY "Public all olympiad_events" ON olympiad_events FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_speakers') THEN
+            CREATE POLICY "Public all olympiad_speakers" ON olympiad_speakers FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_resources') THEN
+            CREATE POLICY "Public all olympiad_resources" ON olympiad_resources FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_videos') THEN
+            CREATE POLICY "Public all olympiad_videos" ON olympiad_videos FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_settings') THEN
+            CREATE POLICY "Public all olympiad_settings" ON olympiad_settings FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+        END $$;
+
         -- Reload PostgREST schema cache if possible
         NOTIFY pgrst, 'reload schema';
       `;

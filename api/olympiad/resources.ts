@@ -2,9 +2,17 @@ import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) return res.status(500).json({ success: false, error: 'Missing Supabase ENV' });
 
     const supabase = createClient(supabaseUrl, supabaseKey);

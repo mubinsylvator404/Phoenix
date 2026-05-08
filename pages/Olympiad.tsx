@@ -88,7 +88,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   const handleSaveHeroSettings = async () => {
     setIsSavingHero(true);
     try {
-      const res = await fetch('/api/olympiad/settings', {
+      const resp = await fetch('/api/olympiad/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -96,7 +96,8 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           hero_description: olympiadDesc
         })
       });
-      if (!res.ok) throw new Error("Failed to save settings");
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.error || "Failed to save settings");
       setShowConfigModal(false);
     } catch (err) {
       console.error("Save hero settings failed:", err);
@@ -183,7 +184,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
     }
 
     try {
-      const res = await fetch(`/api/olympiad/events/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/olympiad/events?id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Delete failed");
       
       const updatedEvents = events.filter(e => e.id !== id);
@@ -203,7 +204,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       setSpeakers(prev => prev.filter(s => s.id !== id));
       
       if (!String(id).includes('_s') && !String(id).startsWith('temp-')) {
-        const res = await fetch(`/api/olympiad/speakers/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/olympiad/speakers?id=${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error("Delete failed");
       }
       
@@ -224,7 +225,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       setResources(prev => prev.filter(r => r.id !== id));
       
       if (!String(id).includes('_r') && !String(id).startsWith('temp-')) {
-        const res = await fetch(`/api/olympiad/resources/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/olympiad/resources?id=${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error("Delete failed");
       }
       
@@ -245,7 +246,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       setVideos(prev => prev.filter(v => v.id !== id));
 
       if (!String(id).includes('_v') && !String(id).startsWith('temp-')) {
-        const res = await fetch(`/api/olympiad/videos/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/olympiad/videos?id=${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error("Delete failed");
       }
 

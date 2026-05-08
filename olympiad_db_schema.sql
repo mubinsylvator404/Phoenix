@@ -100,6 +100,23 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public read olympiad_settings') THEN
         CREATE POLICY "Public read olympiad_settings" ON olympiad_settings FOR SELECT USING (true);
     END IF;
+
+    -- ALL access for testing/simplicity (Can be hardened later)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_events') THEN
+        CREATE POLICY "Public all olympiad_events" ON olympiad_events FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_speakers') THEN
+        CREATE POLICY "Public all olympiad_speakers" ON olympiad_speakers FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_resources') THEN
+        CREATE POLICY "Public all olympiad_resources" ON olympiad_resources FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_videos') THEN
+        CREATE POLICY "Public all olympiad_videos" ON olympiad_videos FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_settings') THEN
+        CREATE POLICY "Public all olympiad_settings" ON olympiad_settings FOR ALL USING (true) WITH CHECK (true);
+    END IF;
 END $$;
 
 -- Policies for admin writing
