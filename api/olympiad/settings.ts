@@ -1,13 +1,18 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabase } from '../_lib/db';
+import { createClient } from '@supabase/supabase-js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   res.setHeader('Content-Type', 'application/json');
-  const { method } = req;
 
   try {
-    const supabase = getSupabase();
-    if (!supabase) throw new Error('Database connection failed');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ success: false, error: 'Missing Supabase ENV' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { method } = req;
 
     switch (method) {
       case 'GET':
@@ -16,6 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .select('*')
           .eq('id', 'default')
           .single();
+        
         if (getError && getError.code !== 'PGRST116') throw getError;
         return res.status(200).json({ success: true, data: getData || { id: 'default' } });
 
@@ -23,15 +29,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: postData, error: postError } = await supabase
           .from('olympiad_settings')
           .upsert({ id: 'default', ...req.body })
-          .select();
+          .select()
+          .single();
+        
         if (postError) throw postError;
-        return res.status(200).json({ success: true, data: postData ? postData[0] : {} });
+        return res.status(200).json({ success: true, data: postData });
 
       default:
-        return res.status(405).json({ success: false, error: `Method ${method} Not Allowed` });
+        return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
   } catch (error: any) {
-    console.error('[API Settings] Error:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Internal Server Error' });
+    console.error('[SETTINGS API ERROR]', error);
+    return res.status(500).json({ success: false, error: error.message || String(error) });
   }
 }

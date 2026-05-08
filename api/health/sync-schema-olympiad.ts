@@ -1,9 +1,8 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabase } from '../_lib/db';
+import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   res.setHeader('Content-Type', 'application/json');
 
   if (req.method !== 'POST') {
@@ -11,11 +10,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const supabase = getSupabase();
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ success: false, error: 'Missing Supabase ENV' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const possiblePaths = [
       path.join(process.cwd(), 'olympiad_db_schema.sql'),
-      path.join(process.cwd(), 'api', 'olympiad_db_schema.sql'),
-      path.join(__dirname, '..', '..', 'olympiad_db_schema.sql')
+      path.join(process.cwd(), 'api', 'olympiad_db_schema.sql')
     ];
     
     let sql = "";
@@ -27,7 +32,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!sql) {
-      // Fallback: hardcoded minimal schema if file not found in serverless env
       sql = `
         CREATE TABLE IF NOT EXISTS olympiad_events (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,6 +89,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ success: true, message: "Olympiad schema synced successfully." });
   } catch (error: any) {
     console.error('[API Sync Olympiad] Error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message || String(error) });
   }
 }
