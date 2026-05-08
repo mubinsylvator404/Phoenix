@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS olympiad_events (
   description TEXT,
   banner_image TEXT,
   date DATE,
-  category TEXT,
   status TEXT CHECK (status IN ('Upcoming', 'Running', 'Completed')) DEFAULT 'Upcoming',
   registration_url TEXT,
   external_link TEXT,
@@ -52,7 +51,6 @@ END $$;
 CREATE TABLE IF NOT EXISTS olympiad_resources (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
-  category TEXT NOT NULL, -- e.g., 'Medical', 'Engineering', 'HSC'
   title TEXT NOT NULL,
   type TEXT CHECK (type IN ('Question Paper', 'Solution', 'Result', 'Merit List', 'Event Details')) NOT NULL,
   url TEXT NOT NULL,
@@ -66,7 +64,6 @@ CREATE TABLE IF NOT EXISTS olympiad_videos (
   olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   youtube_url TEXT NOT NULL,
-  category TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

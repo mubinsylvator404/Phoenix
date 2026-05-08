@@ -333,7 +333,6 @@ export interface OlympiadEvent {
   description: string;
   banner_image?: string;
   date: string;
-  category: string;
   status: 'Upcoming' | 'Running' | 'Completed';
   registration_url?: string;
   external_link?: string;
@@ -355,7 +354,6 @@ export interface OlympiadSpeaker {
 export interface OlympiadResource {
   id: string;
   olympiad_id: string;
-  category: string;
   title: string;
   type: 'Question Paper' | 'Solution' | 'Result' | 'Merit List' | 'Event Details';
   url: string;
@@ -367,5 +365,4 @@ export interface OlympiadVideo {
   olympiad_id: string;
   title: string;
   youtube_url: string;
-  category?: string;
 }

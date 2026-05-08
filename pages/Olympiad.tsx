@@ -38,10 +38,6 @@ interface OlympiadProps {
   navigate: (p: string) => void;
 }
 
-const CATEGORIES = [
-  'Biology', 'Chemistry', 'Physics', 'Mathematics', 'HSC Science', 'SSC Science', 'University Admission'
-];
-
 const RESOURCE_TYPES = [
   'Question Paper', 'Solution', 'Result', 'Merit List', 'Event Details'
 ];
@@ -55,7 +51,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   const [videos, setVideos] = useState<OlympiadVideo[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'results' | 'videos'>('details');
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Customization State (for Hero)
@@ -264,10 +259,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   };
 
   const filteredEvents = events.filter(e => {
-    const matchesCategory = categoryFilter === 'All' || e.category === categoryFilter;
     const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          e.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   const filteredSpeakers = speakers.filter(s => 
@@ -279,13 +273,11 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
 
   const filteredResources = resources.filter(r => 
     r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.category.toLowerCase().includes(searchQuery.toLowerCase())
+    r.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredVideos = videos.filter(v => 
-    v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.category?.toLowerCase().includes(searchQuery.toLowerCase())
+    v.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Components
@@ -372,21 +364,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
               </button>
             )}
           </div>
-          <div className="flex flex-wrap gap-3">
-            {['All', ...CATEGORIES].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  categoryFilter === cat 
-                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' 
-                  : 'bg-white/5 text-slate-500 border border-white/10 hover:bg-white/10'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="relative w-full md:w-80 group">
@@ -448,7 +425,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
             
             <div className="p-8 space-y-6">
               <div className="space-y-2">
-                <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">{event.category}</p>
                 <h3 className="text-2xl font-black text-white leading-tight uppercase line-clamp-2">{event.title}</h3>
                 <p className="text-sm text-slate-500 line-clamp-2">{event.description}</p>
               </div>
@@ -532,7 +508,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                 </button>
               </div>
             )}
-            <p className="text-orange-500 font-black uppercase tracking-[0.4em] text-xs">{selectedEvent.category}</p>
             <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">{selectedEvent.title}</h1>
             <p className="text-slate-400 max-w-2xl mx-auto text-sm leading-relaxed">{selectedEvent.description}</p>
             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
@@ -719,7 +694,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     </div>
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{resource.category}</p>
                         <h4 className="text-sm font-bold text-white leading-tight uppercase">{resource.title}</h4>
                       </div>
                       <a 
@@ -788,7 +762,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                         <div className="space-y-1">
                           <p className="text-[10px] font-black text-green-500 uppercase tracking-widest">{result.type}</p>
                           <h4 className="text-xl font-black text-white uppercase">{result.title}</h4>
-                          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{result.category}</p>
                         </div>
                       </div>
                       <a 
@@ -855,7 +828,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       />
                     </div>
                     <div className="px-4 space-y-2">
-                       <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest">{video.category}</p>
                        <h4 className="text-xl font-black text-white uppercase group-hover:text-orange-500 transition-colors">{video.title}</h4>
                     </div>
                   </motion.div>
@@ -1054,16 +1026,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       <input type="date" name="date" defaultValue={editingItem?.date} required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Category</label>
-                      <select 
-                        name="category" 
-                        defaultValue={editingItem?.category} 
-                        className="w-full bg-slate-800 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-orange-500 focus:outline-none appearance-none"
-                      >
-                        {CATEGORIES.map(c => <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Banner URL</label>
                        <input name="banner_image" defaultValue={editingItem?.banner_image} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" placeholder="https://..." />
                     </div>
@@ -1126,16 +1088,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       <input name="title" defaultValue={editingItem?.title} required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Category</label>
-                      <select 
-                        name="category" 
-                        defaultValue={editingItem?.category} 
-                        className="w-full bg-slate-800 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-orange-500 focus:outline-none appearance-none"
-                      >
-                        {CATEGORIES.map(c => <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Type</label>
                        <select name="type" defaultValue={editingItem?.type} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold">
                          {RESOURCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -1157,16 +1109,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     <div className="md:col-span-2 space-y-2">
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">YouTube URL</label>
                       <input name="youtube_url" defaultValue={editingItem?.youtube_url} required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" placeholder="https://youtube.com/watch?v=..." />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Category</label>
-                      <select 
-                        name="category" 
-                        defaultValue={editingItem?.category} 
-                        className="w-full bg-slate-800 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-orange-500 focus:outline-none appearance-none"
-                      >
-                        {CATEGORIES.map(c => <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>)}
-                      </select>
                     </div>
                   </>
                 )}

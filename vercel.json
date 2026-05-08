@@ -8,6 +8,10 @@
       "destination": "/api/$1"
     },
     {
+      "source": "/olympiad",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

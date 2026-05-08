@@ -37,7 +37,6 @@ export default async function handler(req: any, res: any) {
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           title TEXT NOT NULL,
           description TEXT,
-          category TEXT,
           date DATE,
           status TEXT DEFAULT 'Upcoming',
           banner_image TEXT,
@@ -80,7 +79,6 @@ export default async function handler(req: any, res: any) {
           olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
           title TEXT NOT NULL,
           type TEXT,
-          category TEXT,
           url TEXT,
           created_at TIMESTAMPTZ DEFAULT now()
         );
@@ -89,7 +87,6 @@ export default async function handler(req: any, res: any) {
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
           title TEXT NOT NULL,
-          category TEXT,
           url TEXT,
           created_at TIMESTAMPTZ DEFAULT now()
         );
