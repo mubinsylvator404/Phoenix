@@ -4,29 +4,29 @@ import { createClient } from '@supabase/supabase-js';
 export default async function handler(req: any, res: any) {
   res.setHeader('Content-Type', 'application/json');
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://gkycpsiqzwtbnomrnpog.supabase.co';
   const supabaseKey = 
     process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
     process.env.SUPABASE_SERVICE_ROLE_KEY || 
     process.env.VITE_SUPABASE_ANON_KEY || 
-    process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ success: false, error: 'Database configuration missing' });
-  }
+    process.env.SUPABASE_ANON_KEY || 
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWNwc2lxend0Ym5vbXJucG9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzQwNjYsImV4cCI6MjA4NzAxMDA2Nn0.ijOH4UnQ8k9ODCHRfd0bgqAR4DNAgK_pHVHK4kwy078';
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
     if (req.method === 'POST') {
-      // Re-use logic from bulk-sync for convenience if POST hits here
-      const { updates } = req.body || {};
+      let body = req.body;
+      if (typeof body === 'string') body = JSON.parse(body);
+
+      const { updates } = body || {};
       if (!updates || !Array.isArray(updates)) {
         return res.status(400).json({ success: false, error: 'Invalid payload' });
       }
 
       let failures = 0;
       for (const u of updates) {
+        if (!u.id) continue;
         const { error } = await supabase.from('students').update({ 
           daily_attendance: u.daily_attendance, 
           attendance: u.attendance, 
@@ -37,7 +37,6 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({ success: failures === 0, failures });
     } else if (req.method === 'GET') {
-      // Return a simple health/status
       return res.status(200).json({ status: 'Attendance API active', timestamp: new Date().toISOString() });
     }
 

@@ -1,41 +1,36 @@
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: any, res: any) {
-  // Always set JSON content type
+  // Always set JSON content type first
   res.setHeader('Content-Type', 'application/json');
 
-  // Ensure request is POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+  // Handle CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Debug log for Vercel logs
-  console.log('[AttendanceBulkSync] Incoming request...');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   try {
-    const { updates } = req.body || {};
-
-    if (!updates || !Array.isArray(updates)) {
-      console.error('[AttendanceBulkSync] Invalid updates payload');
-      return res.status(400).json({ success: false, error: 'Invalid updates payload. Expected "updates" array.' });
+    let body = req.body;
+    if (body && typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (e) { console.error('JSON parse fail'); }
     }
 
-    // Inline Supabase initialization for stability
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const { updates } = body || {};
+    if (!updates || !Array.isArray(updates)) {
+      return res.status(400).json({ success: false, error: 'Invalid updates payload' });
+    }
+
+    // Direct Supabase Init with Fallbacks
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://gkycpsiqzwtbnomrnpog.supabase.co';
     const supabaseKey = 
       process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
       process.env.SUPABASE_SERVICE_ROLE_KEY || 
       process.env.VITE_SUPABASE_ANON_KEY || 
-      process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('[AttendanceBulkSync] Missing Supabase ENV variables');
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Database configuration missing on server.',
-        details: { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey }
-      });
-    }
+      process.env.SUPABASE_ANON_KEY || 
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWNwc2lxend0Ym5vbXJucG9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzQwNjYsImV4cCI6MjA4NzAxMDA2Nn0.ijOH4UnQ8k9ODCHRfd0bgqAR4DNAgK_pHVHK4kwy078';
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
@@ -43,16 +38,10 @@ export default async function handler(req: any, res: any) {
     let failures = 0;
     const failureDetails: any[] = [];
 
-    console.log(`[AttendanceBulkSync] Processing ${updates.length} updates...`);
-
+    // Chunk size limit to avoid timeouts if needed, but for now sequential
     for (const u of updates) {
+      if (!u.id) continue;
       try {
-        if (!u.id) {
-          failures++;
-          failureDetails.push({ error: 'Missing student ID' });
-          continue;
-        }
-
         const { error } = await supabase
           .from('students')
           .update({ 
@@ -65,17 +54,14 @@ export default async function handler(req: any, res: any) {
         if (error) {
           failures++;
           failureDetails.push({ id: u.id, error: error.message });
-          console.error(`[AttendanceBulkSync] Failed update for ID ${u.id}:`, error.message);
         } else {
           successes++;
         }
-      } catch (innerErr: any) {
+      } catch (inner: any) {
         failures++;
-        failureDetails.push({ id: u.id, error: String(innerErr) });
+        failureDetails.push({ id: u.id, error: String(inner) });
       }
     }
-
-    console.log(`[AttendanceBulkSync] Done. Successes: ${successes}, Failures: ${failures}`);
 
     return res.status(200).json({ 
       success: failures === 0, 
@@ -86,11 +72,7 @@ export default async function handler(req: any, res: any) {
     });
 
   } catch (err: any) {
-    console.error('[AttendanceBulkSync] CRITICAL ERROR:', err);
-    return res.status(500).json({ 
-      success: false, 
-      error: 'Internal Server Error',
-      details: String(err)
-    });
+    console.error('[AttendanceBulkSync] Error:', err);
+    return res.status(500).json({ success: false, error: 'Internal Server Error', details: String(err) });
   }
 }

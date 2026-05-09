@@ -8,25 +8,16 @@ import cors from "cors";
 
 console.log("Server initializing...");
 
-// Supabase configuration (using existing credentials)
-const getEnv = (name: string) => {
-  const val = process.env[name];
-  return val && val.trim().length > 0 ? val.trim() : null;
-};
-
-// Audited environment variable names for Vercel consistency
-const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL') || 'https://gkycpsiqzwtbnomrnpog.supabase.co';
+// Supabase configuration (using existing credentials or ENV)
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://gkycpsiqzwtbnomrnpog.supabase.co';
 const supabaseKey = 
-  getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || 
-  getEnv('SUPABASE_SERVICE_ROLE_KEY') || 
-  getEnv('VITE_SUPABASE_ANON_KEY') || 
-  getEnv('SUPABASE_ANON_KEY') || 
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || 
+  process.env.VITE_SUPABASE_ANON_KEY || 
+  process.env.SUPABASE_ANON_KEY || 
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWNwc2lxend0Ym5vbXJucG9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzQwNjYsImV4cCI6MjA4NzAxMDA2Nn0.ijOH4UnQ8k9ODCHRfd0bgqAR4DNAgK_pHVHK4kwy078';
 
-console.log(`[Supabase] Initializing with URL: ${supabaseUrl}`);
-const isServiceRole = !!(getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY'));
-console.log(`[Supabase] Using ${isServiceRole ? 'Service Role' : 'Anon'} Key (Length: ${supabaseKey.length})`);
-
+const isServiceRole = !!(process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ES Module __dirname and __filename fix
