@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.students (
     subject_payment_types JSONB DEFAULT '{}',
     subject_enrollment_dates JSONB DEFAULT '{}',
     monthly_payments JSONB DEFAULT '{}',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
