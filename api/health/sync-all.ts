@@ -27,22 +27,40 @@ export default async function handler(req: any, res: any) {
     ];
 
     const results = [];
+    console.log(`[SchemaSync] Starting master sync across ${sqlFiles.length} files...`);
+
     for (const fileName of sqlFiles) {
       try {
         const filePath = path.join(process.cwd(), fileName);
         if (fs.existsSync(filePath)) {
           const sql = fs.readFileSync(filePath, 'utf8');
+          console.log(`[SchemaSync] Running SQL from ${fileName}`);
           const { error } = await supabase.rpc('run_sql', { sql });
-          results.push({ file: fileName, status: error ? 'error' : 'success', message: error ? error.message : 'OK' });
+          
+          if (error) {
+            console.error(`[SchemaSync] Error in ${fileName}:`, error.message);
+          }
+          
+          results.push({ 
+            file: fileName, 
+            status: error ? 'error' : 'success', 
+            message: error ? error.message : 'OK' 
+          });
         } else {
+          console.warn(`[SchemaSync] File not found: ${fileName}`);
           results.push({ file: fileName, status: 'skipped', message: 'File not found' });
         }
       } catch (e: any) {
+        console.error(`[SchemaSync] Exception while processing ${fileName}:`, e.message);
         results.push({ file: fileName, status: 'exception', message: e.message });
       }
     }
 
-    return res.status(200).json({ success: true, results });
+    console.log('[SchemaSync] Master sync complete.');
+    return res.status(200).json({ 
+      success: !results.some(r => r.status === 'error' && r.message && !r.message.includes('already exists')), 
+      results 
+    });
   } catch (error: any) {
     console.error('[API Sync All] Error:', error);
     return res.status(500).json({ success: false, error: error.message || String(error) });

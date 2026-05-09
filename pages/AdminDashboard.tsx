@@ -629,7 +629,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsCheckingHealth(true); // Re-use for loading state or add a dedicated one
     try {
-      const response = await fetch('/api/students/bulk-sync', {
+      console.log("[Attendance/Client] Requesting bulk sync via /api/attendance/bulk-sync");
+      const response = await fetch('/api/attendance/bulk-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates })
@@ -637,6 +638,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       if (response.ok) {
         const result = await response.json();
+        console.log("[Attendance/Client] Sync result:", result);
         if (result.success) {
           // Update all students locally at once
           setStudents(prev => prev.map(item => {
@@ -652,10 +654,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }));
           alert(`Success! Attendance records saved for ${attendanceDate}.\nTotal Students: ${updates.length}\nTotal Present: ${Object.values(finalMap).filter(v => v === true).length}`);
         } else {
-          alert(`Sync finished with ${result.failures} failures. Please check logs.`);
+          console.error("[Attendance/Client] Sync partial failure:", result);
+          alert(`Sync finished with ${result.failures} failures. Please check server logs.\nTip: You may need to run 'Master Sync' to ensure database columns exist.`);
         }
       } else {
-        alert("Failed to reach server for bulk sync.");
+        const errorText = await response.text();
+        console.error("[Attendance/Client] Server unreachable or returned error:", response.status, errorText);
+        alert(`Failed to reach server for bulk sync (Status ${response.status}).\nResponse: ${errorText.substring(0, 50)}...`);
       }
     } catch (err: any) {
       console.error("Bulk sync error:", err);

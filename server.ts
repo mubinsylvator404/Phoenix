@@ -121,7 +121,7 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
 // --- 1. CRITICAL SYNC & HEALTH ROUTES ---
   // More permissive matching for sync-all
-  app.post("/api/health/sync-all", async (req, res) => {
+  app.post(["/api/health/sync-all", "/api/sync"], async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     try {
       console.log(`[SchemaSync] Master sync requested via ${req.originalUrl}`);
@@ -407,32 +407,92 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
   // --- 3. STUDENT & ATTENDANCE ROUTES ---
   app.post("/api/students/sync", async (req, res) => {
+    console.log("[API/Attendance] Individual sync requested for:", req.body.studentId);
     try {
       const { studentId, dailyAttendance, otherData } = req.body;
+      if (!studentId) {
+        return res.status(400).json({ success: false, error: "Missing studentId" });
+      }
+
       const updatePayload: any = { ...otherData };
       if (dailyAttendance) updatePayload.daily_attendance = dailyAttendance;
       updatePayload.updated_at = new Date().toISOString();
+      
       const { error } = await supabase.from('students').update(updatePayload).eq('id', studentId);
-      if (error) throw error;
+      if (error) {
+        console.error(`[API/Attendance] Supabase Sync Error for ${studentId}:`, error);
+        throw error;
+      }
+      
       res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      console.error("[API/Attendance] Sync Crash:", err);
+      res.status(500).json({ success: false, error: err.message, details: "Internal Server Error during individual sync" }); 
+    }
   });
 
-  app.post("/api/students/bulk-sync", async (req, res) => {
+  // Bulk sync route - can be reached via multiple paths for maximum compatibility
+  const handleBulkSync = async (req: express.Request, res: express.Response) => {
+    console.log(`[API/Attendance] Bulk sync requested via: ${req.originalUrl}`);
+    res.setHeader('Content-Type', 'application/json');
+    
     try {
       const { updates } = req.body;
-      let failures = 0;
-      for (const u of updates) {
-        const { error } = await supabase.from('students').update({ 
-          daily_attendance: u.daily_attendance, 
-          attendance: u.attendance, 
-          updated_at: new Date().toISOString() 
-        }).eq('id', u.id);
-        if (error) failures++;
+      if (!updates || !Array.isArray(updates)) {
+        console.error("[API/Attendance] Bulk Sync Error: Invalid or missing updates payload");
+        return res.status(400).json({ success: false, error: "Invalid updates payload. Expected array in 'updates' field." });
       }
-      res.json({ success: failures === 0, failures });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
+
+      console.log(`[API/Attendance] Processing batch of ${updates.length} students...`);
+      let failures = 0;
+      const failureLogs: any[] = [];
+
+      for (const u of updates) {
+        try {
+          const { error } = await supabase.from('students').update({ 
+            daily_attendance: u.daily_attendance, 
+            attendance: u.attendance, 
+            updated_at: new Date().toISOString() 
+          }).eq('id', u.id);
+          
+          if (error) {
+            failures++;
+            failureLogs.push({ id: u.id, error: error.message });
+            console.error(`[API/Attendance] Failed to update student ID ${u.id}:`, error.message);
+          }
+        } catch (innerErr: any) {
+          failures++;
+          failureLogs.push({ id: u.id, error: innerErr.message });
+          console.error(`[API/Attendance] Exception for student ID ${u.id}:`, innerErr);
+        }
+      }
+
+      if (failures > 0) {
+        console.warn(`[API/Attendance] Bulk sync completed with ${failures} errors.`);
+      } else {
+        console.log("[API/Attendance] Bulk sync completed successfully.");
+      }
+
+      return res.status(200).json({ 
+        success: failures === 0, 
+        failures,
+        total: updates.length,
+        failureDetails: failures > 0 ? failureLogs : undefined
+      });
+    } catch (err: any) { 
+      console.error("[API/Attendance] Bulk Sync CRITICAL FAILURE:", err);
+      return res.status(500).json({ 
+        success: false, 
+        error: "Server Error", 
+        details: err.message 
+      }); 
+    }
+  };
+
+  app.post("/api/students/bulk-sync", handleBulkSync);
+  app.post("/api/attendance/bulk-sync", handleBulkSync);
+  app.post("/api/attendance", handleBulkSync); // Handle base path too
+  app.post("/api/sync/attendance", handleBulkSync);
 
 app.get("/api/syllabus/health", async (req, res) => {
   try {

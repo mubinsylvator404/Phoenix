@@ -249,7 +249,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     if (updates.length === 0) return;
 
     try {
-      const response = await fetch('/api/students/bulk-sync', {
+      const response = await fetch('/api/attendance/bulk-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates })
