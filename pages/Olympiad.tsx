@@ -148,10 +148,6 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       
       if (Array.isArray(items)) {
         setEvents(items);
-        // Auto-select first event if none selected
-        if (items.length > 0 && !selectedEvent) {
-          setSelectedEvent(items[0]);
-        }
       }
       setLoadError(null);
     } catch (err: any) {
@@ -315,8 +311,8 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           fileId = url.split('id=')[1].split('&')[0];
         }
         if (fileId) {
-          // Use thumbnail endpoint which is often more reliable for previews
-          return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+          // Use more reliable direct link format
+          return `https://lh3.googleusercontent.com/d/${fileId}`;
         }
       }
       return url;

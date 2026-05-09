@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // Force exact version sync to Vercel - 2026-04-04 (Attempt 4 for auto-sync)
 import { motion } from 'motion/react';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import { UserRole, Student, Subject, AdminUser, Teacher, Exam, VideoClass, FooterData, HomeData, ChatbotKnowledge, Assignment, AssignmentSubmission, Review, Notice } from './types';
+import { UserRole, Student, Subject, AdminUser, Teacher, Exam, VideoClass, FooterData, HomeData, ChatbotKnowledge, Assignment, AssignmentSubmission, Review, Notice, SyllabusProgress } from './types';
 import { MOCK_STUDENTS, SUBJECT_INFO, TEACHERS } from './constants';
 import { Sun, Moon, MessageSquare, GraduationCap, School, BarChart3, Bell, X } from 'lucide-react';
 import Navbar from './components/Navbar';
@@ -342,6 +342,7 @@ const App: React.FC = () => {
   const [chatbotKnowledge, setChatbotKnowledge] = useState<ChatbotKnowledge[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [syllabusProgress, setSyllabusProgress] = useState<SyllabusProgress[]>([]);
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('phoenix_dismissed_notices');
@@ -361,6 +362,10 @@ const App: React.FC = () => {
       syncData('notices', next);
       return next;
     });
+  };
+
+  const updateSyllabusProgressWithSync = (action: React.SetStateAction<SyllabusProgress[]>) => {
+    setSyllabusProgress(prev => typeof action === 'function' ? action(prev) : action);
   };
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -458,6 +463,7 @@ const App: React.FC = () => {
           setAssignments(data.assignments || []);
           setReviews(data.reviews || []);
           setNotices(data.notices || []);
+          setSyllabusProgress(data.syllabusProgress || []);
           
           if (data.config) {
             const cfg = data.config;
@@ -560,8 +566,11 @@ const App: React.FC = () => {
     }
 
     if (!isLoading) {
+      // Improved hash: include counts AND verification status summary to detect approval changes
+      const verifiedCount = students.filter(s => s.isVerified).length;
       const currentData = JSON.stringify({
         students: students.length,
+        verifiedCount,
         teachers: teachers.length, 
         subjects: subjects.length,
         exams: exams.length,
@@ -570,6 +579,7 @@ const App: React.FC = () => {
         assignments: assignments.length,
         reviews: reviews.length,
         notices: notices.length,
+        syllabusProgress: syllabusProgress.length,
         logo,
         adminProfile: JSON.stringify(adminProfile),
         footerData: JSON.stringify(footerData),
@@ -599,7 +609,9 @@ const App: React.FC = () => {
             syncData('video_classes', videoClasses),
             syncData('chatbot_knowledge', chatbotKnowledge),
             syncData('assignments', assignments),
-            syncData('reviews', reviews)
+            syncData('reviews', reviews),
+            syncData('notices', notices),
+            syncData('syllabus_progress', syllabusProgress)
           ]);
           console.log("[App] Global sync completed.");
         } catch (err) {
@@ -612,7 +624,7 @@ const App: React.FC = () => {
       const timer = setTimeout(sync, 2000); // 2 second debounce
       return () => clearTimeout(timer);
     }
-  }, [students, teachers, subjects, exams, videoClasses, chatbotKnowledge, assignments, reviews, notices, logo, adminProfile, footerData, homeData, isLoading]);
+  }, [students, teachers, subjects, exams, videoClasses, chatbotKnowledge, assignments, reviews, notices, syllabusProgress, logo, adminProfile, footerData, homeData, isLoading]);
 
   const navigate = (page: string) => {
     setCurrentPage(page);

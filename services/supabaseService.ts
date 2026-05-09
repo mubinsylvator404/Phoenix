@@ -187,6 +187,14 @@ export const syncData = async (table: string, data: any | any[], retries = 3, de
             if (newItem.studentName !== undefined) { newItem.student_name = newItem.studentName; delete (newItem as any).studentName; }
           }
 
+          // Mapping for syllabus_progress
+          if (table === 'syllabus_progress') {
+            if (newItem.chapterName) { newItem.chapter_name = newItem.chapterName; delete (newItem as any).chapterName; }
+            if (newItem.teacherName) { newItem.teacher_name = newItem.teacherName; delete (newItem as any).teacherName; }
+            if (newItem.totalLectures !== undefined) { newItem.total_lectures = newItem.totalLectures; delete (newItem as any).totalLectures; }
+            if (newItem.updatedAt) { newItem.updated_at = newItem.updatedAt; delete (newItem as any).updatedAt; }
+          }
+
           if (table === 'site_config') {
             if (newItem.adminProfile) { 
               const strVal = typeof newItem.adminProfile === 'object' ? JSON.stringify(newItem.adminProfile) : newItem.adminProfile;
@@ -394,7 +402,8 @@ export const fetchAllData = async () => {
       supabase.from('chatbot_knowledge').select('*'),
       supabase.from('assignments').select('*'),
       supabase.from('reviews').select('*'),
-      supabase.from('notices').select('*')
+      supabase.from('notices').select('*'),
+      supabase.from('syllabus_progress').select('*')
     ]);
 
     const getRes = (idx: number) => {
@@ -412,6 +421,7 @@ export const fetchAllData = async () => {
     const assignmentsRes = getRes(7);
     const reviewsRes = getRes(8);
     const noticesRes = getRes(9);
+    const syllabusRes = getRes(10);
 
     // Log any errors for debugging
     if (studentsRes.error) console.warn('Error fetching students:', studentsRes.error.message);
@@ -525,6 +535,13 @@ export const fetchAllData = async () => {
         hscBatch: r.hsc_batch || r.hscBatch || undefined,
         studentName: r.student_name || r.studentName || undefined,
         relation: r.relation || undefined
+      })),
+      syllabusProgress: (syllabusRes.data || []).map((s: any) => ({
+        ...s,
+        chapterName: s.chapter_name || s.chapterName || '',
+        teacherName: s.teacher_name || s.teacherName || '',
+        totalLectures: s.total_lectures || s.totalLectures || 1,
+        updatedAt: s.updated_at || s.updatedAt || ''
       })),
       config: (configRes.data && configRes.data.length > 0) ? {
         ...configRes.data[0],
