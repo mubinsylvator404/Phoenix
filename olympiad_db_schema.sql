@@ -88,8 +88,29 @@ CREATE TABLE IF NOT EXISTS olympiad_settings (
   id TEXT PRIMARY KEY,
   hero_title TEXT,
   hero_description TEXT,
+  hero_image TEXT,
+  venue TEXT,
+  event_date TEXT,
+  registration_link TEXT,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure columns exist for settings if table already existed
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_settings' AND column_name='hero_image') THEN
+    ALTER TABLE olympiad_settings ADD COLUMN hero_image TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_settings' AND column_name='venue') THEN
+    ALTER TABLE olympiad_settings ADD COLUMN venue TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_settings' AND column_name='event_date') THEN
+    ALTER TABLE olympiad_settings ADD COLUMN event_date TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_settings' AND column_name='registration_link') THEN
+    ALTER TABLE olympiad_settings ADD COLUMN registration_link TEXT;
+  END IF;
+END $$;
 
 -- Enable RLS
 ALTER TABLE olympiad_events ENABLE ROW LEVEL SECURITY;

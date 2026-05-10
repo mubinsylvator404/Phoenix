@@ -58,6 +58,11 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   // Customization State (for Hero)
   const [olympiadTitle, setOlympiadTitle] = useState('Phoenix Supreme Olympiad');
   const [olympiadDesc, setOlympiadDesc] = useState('Inspiring Future Scientists, Engineers & Medical Leaders. Join the elite league of academic champions.');
+  const [olympiadVenue, setOlympiadVenue] = useState('Virtual / Kulaura');
+  const [olympiadDate, setOlympiadDate] = useState('Coming Soon');
+  const [olympiadRegLink, setOlympiadRegLink] = useState('');
+  const [olympiadHeroImage, setOlympiadHeroImage] = useState('');
+  
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [isSavingHero, setIsSavingHero] = useState(false);
 
@@ -78,9 +83,15 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       const res = await fetch('/api/olympiad?type=settings');
       if (res.ok) {
         const result = await res.json();
-        const data = result.data || result;
-        if (data.hero_title) setOlympiadTitle(data.hero_title);
-        if (data.hero_description) setOlympiadDesc(data.hero_description);
+        const data = Array.isArray(result.data) ? result.data[0] : (result.data || result);
+        if (data) {
+          if (data.hero_title) setOlympiadTitle(data.hero_title);
+          if (data.hero_description) setOlympiadDesc(data.hero_description);
+          if (data.venue) setOlympiadVenue(data.venue);
+          if (data.event_date) setOlympiadDate(data.event_date);
+          if (data.registration_link) setOlympiadRegLink(data.registration_link);
+          if (data.hero_image) setOlympiadHeroImage(data.hero_image);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch olympiad settings:", err);
@@ -114,8 +125,13 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: 'default',
           hero_title: olympiadTitle,
-          hero_description: olympiadDesc
+          hero_description: olympiadDesc,
+          venue: olympiadVenue,
+          event_date: olympiadDate,
+          registration_link: olympiadRegLink,
+          hero_image: olympiadHeroImage
         })
       });
       const data = await resp.json();
@@ -322,7 +338,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   };
 
   const HeroSection = () => (
-    <div className="relative min-h-[60vh] flex items-center justify-center overflow-hidden pt-20">
+    <div className="relative min-h-[70vh] flex items-center justify-center overflow-hidden pt-20">
       {isAdmin && (
         <button 
           onClick={() => setShowConfigModal(true)}
@@ -332,18 +348,36 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         </button>
       )}
       <div className="absolute inset-0 bg-[#0A0A0A]">
-        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-500/10 blur-[120px] rounded-full animate-pulse" />
+        {olympiadHeroImage ? (
+          <img src={getDirectImageUrl(olympiadHeroImage)} className="w-full h-full object-cover opacity-30" alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <>
+            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-500/10 blur-[120px] rounded-full animate-pulse" />
+          </>
+        )}
       </div>
       
       <div className="relative z-10 max-w-7xl mx-auto px-6 text-center space-y-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-black uppercase tracking-[0.3em]"
+          className="inline-flex items-center gap-6 px-6 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]"
         >
-          <Award size={14} />
-          Phoenix Excellence Program
+          <div className="flex items-center gap-2">
+            <Award size={14} />
+            <span>Phoenix Excellence</span>
+          </div>
+          <div className="w-px h-4 bg-white/10" />
+          <div className="flex items-center gap-2 text-white/70">
+            <MapPin size={14} className="text-orange-500" />
+            <span>{olympiadVenue}</span>
+          </div>
+          <div className="w-px h-4 bg-white/10" />
+          <div className="flex items-center gap-2 text-white/70">
+            <Calendar size={14} className="text-orange-500" />
+            <span>{olympiadDate}</span>
+          </div>
         </motion.div>
         
         <motion.h1
@@ -364,25 +398,33 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           transition={{ delay: 0.2, duration: 0.8 }}
           className="relative max-w-3xl mx-auto group"
         >
-          {/* Cinematic Background Glow */}
           <div className="absolute -inset-x-20 -inset-y-10 bg-orange-500/5 blur-[100px] rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
           
-          {/* Futuristic Glass Container */}
           <div className="relative px-8 py-10 md:px-12 backdrop-blur-sm bg-white/[0.02] border border-white/5 rounded-[40px] overflow-hidden shadow-2xl shadow-orange-500/5">
-            {/* Corner Decorative Accents */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-white/10 rounded-tl-[40px]" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b border-r border-white/10 rounded-br-[40px]" />
-            
             <p className="relative z-10 text-base md:text-[1.3rem] text-slate-200/90 font-medium tracking-tight leading-relaxed md:leading-[1.8]">
               {olympiadDesc}
             </p>
-            
-            {/* Subtle glow line at the bottom */}
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-[1px] bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
           </div>
         </motion.div>
-        
 
+        {olympiadRegLink && (
+           <motion.div
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             transition={{ delay: 0.3 }}
+             className="pt-4"
+           >
+             <a 
+               href={olympiadRegLink}
+               target="_blank"
+               rel="noopener noreferrer"
+               className="inline-flex items-center gap-3 px-10 py-5 bg-orange-500 text-white rounded-[20px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-2xl shadow-orange-500/20 active:scale-95"
+             >
+               Register Now <ArrowRight size={20} />
+             </a>
+           </motion.div>
+        )}
       </div>
     </div>
   );
@@ -664,10 +706,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       { label: 'Group / Category', value: selectedEvent.target_group || 'All Groups', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
                       { label: 'Event Date', value: selectedEvent.date || 'To be announced', icon: Calendar, color: 'text-orange-400', bg: 'bg-orange-400/10' },
                       { label: 'Registration Deadline', value: selectedEvent.deadline || 'Limited Seats', icon: Clock, color: 'text-red-400', bg: 'bg-red-400/10' },
-                      { label: 'Event Venue', value: selectedEvent.venue || 'Virtual / Kulaura', icon: MapPin, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                      { label: 'Event Venue', value: selectedEvent.venue || olympiadVenue, icon: MapPin, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                     ].map((item, i) => (
                       <div key={i} className="bg-white/[0.03] border border-white/10 p-6 rounded-[24px] hover:bg-white/[0.08] hover:border-white/20 transition-all group relative overflow-hidden">
-                         <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rotate-45 translate-x-8 -translate-y-8" />
                         <div className="flex items-center gap-4 relative z-10">
                           <div className={`w-12 h-12 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500`}>
                             <item.icon size={22} />
@@ -1004,27 +1045,27 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       {/* Hero Config Modal */}
       <AnimatePresence>
         {showConfigModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto pt-24 pb-8">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 p-10 rounded-[40px] w-full max-w-xl space-y-8"
+              className="bg-slate-900 border border-white/10 p-10 rounded-[40px] w-full max-w-2xl space-y-8"
             >
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Olympiad Hero Settings</h3>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Olympiad Global Settings</h3>
                 <button onClick={() => setShowConfigModal(false)} className="p-3 text-slate-400 hover:text-white"><X size={24} /></button>
               </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Header Title</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Hero Title</label>
                   <input 
                     value={olympiadTitle} 
                     onChange={e => setOlympiadTitle(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" 
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="md:col-span-2 space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Description Text</label>
                   <textarea 
                     value={olympiadDesc} 
@@ -1032,7 +1073,41 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold h-32" 
                   />
                 </div>
-                <div className="flex gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Hero Image URL</label>
+                  <input 
+                    value={olympiadHeroImage} 
+                    onChange={e => setOlympiadHeroImage(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Global Venue</label>
+                  <input 
+                    value={olympiadVenue} 
+                    onChange={e => setOlympiadVenue(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Global Date</label>
+                  <input 
+                    value={olympiadDate} 
+                    onChange={e => setOlympiadDate(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Global Reg Link</label>
+                  <input 
+                    value={olympiadRegLink} 
+                    onChange={e => setOlympiadRegLink(e.target.value)}
+                    placeholder="https://forms.gle/..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold" 
+                  />
+                </div>
+                <div className="md:col-span-2 flex gap-4 pt-4">
                   <button
                     onClick={handleSyncDatabase}
                     disabled={isSyncing}

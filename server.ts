@@ -307,17 +307,33 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
     try {
       if (method === 'GET') {
-        const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
+        const query = supabase.from(table).select('*');
+        
+        // Handle tables without created_at
+        if (table !== 'olympiad_settings') {
+          query.order('created_at', { ascending: false });
+        }
+        
+        const { data, error } = await query;
         if (error) throw error;
         return res.json({ success: true, data: data || [] });
       }
 
       if (method === 'POST') {
         const body = req.body;
-        if (body.id && (String(body.id).startsWith('e') || String(body.id).startsWith('temp-'))) delete body.id;
-        const { data, error } = await supabase.from(table).upsert(body).select().single();
+        // Strip dummy IDs
+        if (body.id && (String(body.id).startsWith('e') || String(body.id).startsWith('temp-'))) {
+          delete body.id;
+        }
+        
+        // Ensure settings have a fixed ID if not provided
+        if (table === 'olympiad_settings' && !body.id) {
+          body.id = 'default';
+        }
+
+        const { data, error } = await supabase.from(table).upsert(body).select();
         if (error) throw error;
-        return res.json({ success: true, data });
+        return res.json({ success: true, data: data ? data[0] : null });
       }
 
       if (method === 'DELETE') {
@@ -327,9 +343,14 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
         return res.json({ success: true });
       }
 
-      return res.status(405).json({ error: 'Method not allowed' });
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message || String(error) });
+      console.error(`[Olympiad API Error] ${method} ${table}:`, error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || String(error),
+        details: error.details || 'Internal server error'
+      });
     }
   });
 
