@@ -110,6 +110,12 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='olympiad_settings' AND column_name='registration_link') THEN
     ALTER TABLE olympiad_settings ADD COLUMN registration_link TEXT;
   END IF;
+  
+  -- Ensure default settings row exists
+  IF NOT EXISTS (SELECT 1 FROM olympiad_settings WHERE id = 'default') THEN
+    INSERT INTO olympiad_settings (id, hero_title, hero_description) 
+    VALUES ('default', 'Phoenix Olympiad', 'Join the largest educational excellence program.');
+  END IF;
 END $$;
 
 -- Enable RLS

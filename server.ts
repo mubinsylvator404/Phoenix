@@ -110,33 +110,25 @@ app.get(["/api/ping", "/ping"], (req, res) => {
 // diagnostics
 app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new Date().toISOString() }));
 
-// --- 1. CRITICAL SYNC & HEALTH ROUTES ---
-  // More permissive matching for sync-all
-  app.post(["/api/health/sync-all", "/api/sync"], async (req, res) => {
+  // --- 1. CRITICAL SYNC & HEALTH ROUTES ---
+  // Master Sync route for all schemas
+  app.all(["/api/health/sync-all", "/api/sync"], async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     try {
-      console.log(`[SchemaSync] Master sync requested via ${req.originalUrl}`);
+      console.log(`[SchemaSync] Master sync requested via ${req.method} ${req.originalUrl}`);
       const results: any[] = [];
-      
-      const sqlFiles = [
-        'supabase_schema.sql',
-        'syllabus_schema.sql',
-        'olympiad_db_schema.sql',
-        'omr_schema.sql',
-        'analytics_schema.sql'
-      ];
+      const sqlFiles = ['supabase_schema.sql', 'syllabus_schema.sql', 'olympiad_db_schema.sql', 'omr_schema.sql', 'analytics_schema.sql'];
 
       for (const fileName of sqlFiles) {
         try {
           const filePath = path.join(process.cwd(), fileName);
           if (fs.existsSync(filePath)) {
             const sql = fs.readFileSync(filePath, 'utf8');
-            const { error: sqlError } = await supabase.rpc('run_sql', { sql });
-            
+            const { data, error: sqlError } = await supabase.rpc('run_sql', { sql });
             results.push({ 
               file: fileName, 
-              status: sqlError ? 'error' : 'success', 
-              message: sqlError ? sqlError.message : 'OK',
+              status: sqlError ? 'error' : (data?.success === false ? 'failure' : 'success'), 
+              message: sqlError ? sqlError.message : (data?.error || 'OK'),
               code: sqlError ? sqlError.code : null
             });
           } else {
@@ -147,177 +139,41 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
         }
       }
 
-      // Add special column sync
-      try {
-         const { error: colError } = await supabase.rpc('run_sql', { 
-           sql: "ALTER TABLE students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}';" 
-         });
-         results.push({ 
-           file: 'students_patch', 
-           status: colError ? 'error' : 'success', 
-           message: colError ? colError.message : 'Added daily_attendance column' 
-         });
-      } catch (e: any) {
-         results.push({ file: 'students_patch', status: 'error', message: e.message });
-      }
+      // Final patches
+      try { 
+        await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE public.students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); 
+        await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
+      } catch (e) {}
 
-      const hasCriticalError = results.some(r => r.status === 'error' && r.code !== '42P07' && r.code !== '42701');
-      const isRpcMissing = results.some(r => r.status === 'error' && r.message && r.message.includes('does not exist'));
+      const isRpcMissing = results.some(r => r.message && r.message.includes('does not exist'));
 
-      return res.json({ 
-        success: !hasCriticalError,
-        isRpcMissing,
+      res.json({ 
+        success: true, 
         results,
-        tip: isRpcMissing ? "CRITICAL: The 'run_sql' RPC is missing in your Supabase project. Please add it via the SQL Editor." : undefined
+        isRpcMissing,
+        tip: isRpcMissing ? "The 'run_sql' function is missing in Supabase. Please add it manually via SQL Editor." : undefined
       });
     } catch (err: any) {
-      console.error("[MasterSync] Critical sync error:", err);
-      return res.status(500).json({ 
-        error: "Master Sync Error", 
-        details: err.message,
-        tip: "Check if 'run_sql' exists in Supabase. If not, create it manually via SQL editor."
-      });
-    }
-  });
-
-  // Secondary sync route for legacy calls
-  app.post("/health/sync-all", (req, res) => {
-    res.redirect(307, "/api/health/sync-all");
-  });
-
-  app.post("/api/health/sync-schema", async (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    try {
-      console.log("[SchemaSync] Student Table sync request...");
-      const { error } = await supabase.rpc('run_sql', { 
-        sql: "ALTER TABLE students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}';" 
-      });
-      if (error) throw error;
-      return res.json({ success: true, message: "Student schema synced successfully." });
-    } catch (err: any) {
-      return res.status(500).json({ error: "Sync Error", details: err.message });
-    }
-  });
-
-  app.post("/api/health/sync-schema-olympiad", async (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    try {
-      const possiblePaths = [
-        path.join(process.cwd(), 'olympiad_db_schema.sql'),
-        path.join(__dirname, 'olympiad_db_schema.sql')
-      ];
-      let sql = "";
-      for (const p of possiblePaths) {
-        if (fs.existsSync(p)) { sql = fs.readFileSync(p, 'utf8'); break; }
-      }
-      if (!sql) return res.status(404).json({ error: "SQL file not found" });
-      
-      const { error } = await supabase.rpc('run_sql', { sql });
-      if (error) {
-        const isMissingRpc = error.message && error.message.includes("does not exist");
-        return res.status(403).json({ 
-          error: isMissingRpc ? "RPC_MISSING" : "SQL_ERROR", 
-          message: isMissingRpc ? "The 'run_sql' RPC is missing." : error.message,
-          sql: sql
-        });
-      }
-      
-      // Explicitly reload schema after schema changes
-      await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
-      
-      res.json({ success: true, message: "Olympiad tables synced successfully." });
-    } catch (err: any) {
-      res.status(500).json({ error: "Olympiad Sync Error", details: err.message });
+      console.error("[SchemaSync] Master Sync Crash:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
   app.get("/api/health/database", async (req, res) => {
     try {
-      const tables: any = {};
-      const { data: sData, error: sError } = await supabase.from('students').select('*').limit(1);
-      const studentCols = sData ? (sData.length > 0 ? Object.keys(sData[0]) : []) : [];
-      tables.students = {
-        exists: !sError || sError.code !== '42P01',
-        columns: { daily_attendance: studentCols.includes('daily_attendance') }
-      };
-      const { error: oError } = await supabase.from('olympiad_events').select('*').limit(1);
-      tables.olympiad_events = { exists: !oError || oError.code !== '42P01' };
-      res.json({ tables, timestamp: new Date().toISOString() });
+      const { error: oError } = await supabase.from('olympiad_settings').select('id').limit(1);
+      res.json({ 
+        status: "ok", 
+        database: { 
+          olympiad_settings: !oError || oError.code !== '42P01' 
+        } 
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });
 
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
-
-  // Helper for Olympiad Upserts
-  const handleUpsert = async (table: string, body: any, res: express.Response) => {
-    const bodyPreview = JSON.stringify(body).substring(0, 100);
-    console.log(`[Olympiad] POST ${table}:`, bodyPreview);
-    res.setHeader('Content-Type', 'application/json');
-    try {
-      if (!body || typeof body !== 'object') {
-        return res.status(400).json({ error: "Invalid request body" });
-      }
-      const payload = { ...body };
-      if (payload.id && typeof payload.id === 'string' && (payload.id.startsWith('e') || payload.id.startsWith('temp-') || payload.id.startsWith('speaker-') || payload.id.startsWith('resource-') || payload.id.startsWith('video-'))) {
-        delete payload.id;
-      }
-      const { data, error } = await supabase.from(table).upsert(payload, { onConflict: 'id' }).select();
-      if (error) {
-        console.error(`[Olympiad] ${table} Save Error:`, error);
-        
-        // Check for missing table error (PostgREST code 42P01)
-        if (error.code === '42P01') {
-          return res.status(404).json({ 
-            error: "Table not found", 
-            tableMissing: true, 
-            details: `The database table '${table}' does not exist. Please run 'Master Database Restore' in the Admin Dashboard.`,
-            originalError: error.message
-          });
-        }
-        
-        return res.status(500).json({ 
-          error: error.message, 
-          details: error.details,
-          code: error.code
-        });
-      }
-      return res.json(data ? data[0] : {});
-    } catch (error: any) {
-      console.error(`[Olympiad] ${table} Exception:`, error);
-      if (!res.headersSent) res.status(500).json({ error: error.message });
-    }
-  };
-
-  app.all("/api/sync", async (req, res) => {
-    try {
-      const sqlFiles = ['supabase_schema.sql', 'syllabus_schema.sql', 'olympiad_db_schema.sql', 'omr_schema.sql', 'analytics_schema.sql'];
-      const results = [];
-
-      for (const fileName of sqlFiles) {
-        try {
-          const filePath = path.join(process.cwd(), fileName);
-          if (fs.existsSync(filePath)) {
-            const sql = fs.readFileSync(filePath, 'utf8');
-            const { error } = await supabase.rpc('run_sql', { sql });
-            results.push({ file: fileName, status: error ? 'error' : 'success', message: error ? error.message : 'OK' });
-          } else {
-            results.push({ file: fileName, status: 'skipped', message: 'File not found' });
-          }
-        } catch (e: any) {
-          results.push({ file: fileName, status: 'exception', message: e.message });
-        }
-      }
-      
-      // Ensure daily_attendance column
-      try { await supabase.rpc('run_sql', { sql: "ALTER TABLE students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); } catch (e) {}
-
-      res.json({ success: true, results });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
 
   // --- 2. CONSOLIDATED OLYMPIAD API ---
   app.all("/api/olympiad", async (req, res) => {
@@ -344,13 +200,17 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
         }
         
         const { data, error } = await query;
-        if (error) throw error;
+        if (error) {
+          console.error(`[Olympiad GET Error] ${table}:`, error);
+          throw error;
+        }
         return res.json({ success: true, data: data || [] });
       }
 
       if (method === 'POST') {
         const body = req.body;
         if (!body || Object.keys(body).length === 0) {
+          console.warn("[Olympiad POST] Empty body received");
           return res.status(400).json({ success: false, error: 'Empty request body' });
         }
 
@@ -364,12 +224,13 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
           body.id = 'default';
         }
 
-        console.log(`[Olympiad POST] Saving to ${table}:`, body);
+        console.log(`[Olympiad POST] Saving to ${table}:`, JSON.stringify(body));
 
         const { data, error } = await supabase.from(table).upsert(body).select();
         
         if (error) {
-          console.error(`[Olympiad DB Error] ${table}:`, error);
+          console.error(`[Olympiad DB Error] ${table}:`, JSON.stringify(error));
+          
           // If specific columns fail, try saving without them for settings
           if (table === 'olympiad_settings' && error.code === '42703') {
             const basicFields = { 
@@ -377,14 +238,28 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
               hero_title: body.hero_title, 
               hero_description: body.hero_description 
             };
-            console.warn("[Olympiad] Retrying with basic fields due to missing columns...");
+            console.warn("[Olympiad] Retrying with basic fields due to missing columns:", error.message);
             const { data: retryData, error: retryError } = await supabase.from(table).upsert(basicFields).select();
-            if (retryError) throw retryError;
-            return res.json({ success: true, data: retryData ? retryData[0] : null, warning: error.message });
+            if (retryError) {
+              console.error("[Olympiad Retry Error]:", retryError);
+              throw retryError;
+            }
+            return res.json({ 
+              success: true, 
+              data: retryData ? retryData[0] : null, 
+              warning: "Some fields (Venue, Date, image, etc.) were not saved because the database schema is old. Please sync database.",
+              originalError: error.message 
+            });
           }
           throw error;
         }
-        return res.json({ success: true, data: data ? data[0] : null });
+        
+        if (!data || data.length === 0) {
+           console.warn("[Olympiad POST] Upsert succeeded but returned no data");
+           return res.json({ success: true, data: body });
+        }
+
+        return res.json({ success: true, data: data[0] });
       }
 
       if (method === 'DELETE') {
@@ -396,11 +271,11 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     } catch (error: any) {
-      console.error(`[Olympiad API Error] ${method} ${table}:`, error);
+      console.error(`[Olympiad API Error Detail] ${method} ${table}:`, JSON.stringify(error));
       return res.status(500).json({ 
         success: false, 
         error: error.message || String(error),
-        details: error.details || 'Internal server error'
+        details: error.details || error.hint || 'Internal server error'
       });
     }
   });

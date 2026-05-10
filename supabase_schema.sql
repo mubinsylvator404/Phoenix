@@ -133,3 +133,19 @@ CREATE TABLE IF NOT EXISTS public.chatbot_knowledge (
     category TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 11. Helper Function to run SQL (for master sync)
+-- This requires elevated permissions to create, but we include it for completeness
+-- The user might need to run this manually once in Supabase SQL editor if RPC fails.
+CREATE OR REPLACE FUNCTION public.run_sql(sql text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE sql;
+  RETURN json_build_object('success', true);
+EXCEPTION WHEN OTHERS THEN
+  RETURN json_build_object('success', false, 'error', SQLERRM);
+END;
+$$;

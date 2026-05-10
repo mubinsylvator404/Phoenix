@@ -137,7 +137,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       const data = await resp.json();
       if (!data.success) {
         let msg = data.error || "Failed to save settings";
-        if (data.error && data.error.includes('column')) {
+        if (data.details) msg += ` (${data.details})`;
+        
+        if (msg.toLowerCase().includes('column') || msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('relation')) {
           msg = "Database schema mismatch. Please use the 'Master Sync' button below to update your database.";
         }
         throw new Error(msg);
@@ -148,7 +150,12 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
       setShowConfigModal(false);
     } catch (err: any) {
       console.error("Save hero settings failed:", err);
-      alert(err.message || "Failed to save hero settings. Please check your connection.");
+      // Clean up the error message for the user
+      let errorMsg = err.message || String(err);
+      if (errorMsg.includes('Unexpected token')) {
+        errorMsg = "Server returned an invalid response. This usually means the API route is crashing or Vercel is returning an error page. Check logs.";
+      }
+      alert(errorMsg);
     } finally {
       setIsSavingHero(false);
     }
@@ -1122,7 +1129,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     disabled={isSyncing}
                     className="flex-1 py-5 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
                   >
-                    {isSyncing ? 'Syncing...' : 'Sync DB'}
+                    {isSyncing ? 'Syncing...' : 'Master Sync DB'}
                   </button>
                   <button 
                     onClick={handleSaveHeroSettings}
