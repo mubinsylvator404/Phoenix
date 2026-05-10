@@ -290,6 +290,35 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
     }
   };
 
+  app.all("/api/sync", async (req, res) => {
+    try {
+      const sqlFiles = ['supabase_schema.sql', 'syllabus_schema.sql', 'olympiad_db_schema.sql', 'omr_schema.sql', 'analytics_schema.sql'];
+      const results = [];
+
+      for (const fileName of sqlFiles) {
+        try {
+          const filePath = path.join(process.cwd(), fileName);
+          if (fs.existsSync(filePath)) {
+            const sql = fs.readFileSync(filePath, 'utf8');
+            const { error } = await supabase.rpc('run_sql', { sql });
+            results.push({ file: fileName, status: error ? 'error' : 'success', message: error ? error.message : 'OK' });
+          } else {
+            results.push({ file: fileName, status: 'skipped', message: 'File not found' });
+          }
+        } catch (e: any) {
+          results.push({ file: fileName, status: 'exception', message: e.message });
+        }
+      }
+      
+      // Ensure daily_attendance column
+      try { await supabase.rpc('run_sql', { sql: "ALTER TABLE students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); } catch (e) {}
+
+      res.json({ success: true, results });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // --- 2. CONSOLIDATED OLYMPIAD API ---
   app.all("/api/olympiad", async (req, res) => {
     const { action, id, type } = req.query;
@@ -321,6 +350,10 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
       if (method === 'POST') {
         const body = req.body;
+        if (!body || Object.keys(body).length === 0) {
+          return res.status(400).json({ success: false, error: 'Empty request body' });
+        }
+
         // Strip dummy IDs
         if (body.id && (String(body.id).startsWith('e') || String(body.id).startsWith('temp-'))) {
           delete body.id;
@@ -331,8 +364,26 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
           body.id = 'default';
         }
 
+        console.log(`[Olympiad POST] Saving to ${table}:`, body);
+
         const { data, error } = await supabase.from(table).upsert(body).select();
-        if (error) throw error;
+        
+        if (error) {
+          console.error(`[Olympiad DB Error] ${table}:`, error);
+          // If specific columns fail, try saving without them for settings
+          if (table === 'olympiad_settings' && error.code === '42703') {
+            const basicFields = { 
+              id: body.id || 'default', 
+              hero_title: body.hero_title, 
+              hero_description: body.hero_description 
+            };
+            console.warn("[Olympiad] Retrying with basic fields due to missing columns...");
+            const { data: retryData, error: retryError } = await supabase.from(table).upsert(basicFields).select();
+            if (retryError) throw retryError;
+            return res.json({ success: true, data: retryData ? retryData[0] : null, warning: error.message });
+          }
+          throw error;
+        }
         return res.json({ success: true, data: data ? data[0] : null });
       }
 

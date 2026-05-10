@@ -135,11 +135,20 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         })
       });
       const data = await resp.json();
-      if (!data.success) throw new Error(data.error || "Failed to save settings");
+      if (!data.success) {
+        let msg = data.error || "Failed to save settings";
+        if (data.error && data.error.includes('column')) {
+          msg = "Database schema mismatch. Please use the 'Master Sync' button below to update your database.";
+        }
+        throw new Error(msg);
+      }
+      if (data.warning) {
+        alert("Settings saved partially. Note: " + data.warning + "\n\nTip: Use 'Master Sync' to fix this permanently.");
+      }
       setShowConfigModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save hero settings failed:", err);
-      alert("Failed to save hero settings. Please check your connection.");
+      alert(err.message || "Failed to save hero settings. Please check your connection.");
     } finally {
       setIsSavingHero(false);
     }
