@@ -228,7 +228,7 @@ Guidelines:
     setError(null);
 
     try {
-      const verifyResponse = await fetch('/api/omr/scan', {
+      const verifyResponse = await fetch('/api/omr?action=scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

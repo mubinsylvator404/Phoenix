@@ -18,7 +18,7 @@ const OMRDashboard: React.FC = () => {
   const fetchExams = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/omr/exams');
+      const response = await fetch('/api/omr');
       
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -45,7 +45,7 @@ const OMRDashboard: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this exam and all its results? This action is IRREVERSIBLE.")) return;
     
     try {
-      const response = await fetch(`/api/omr/exams/${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/omr?id=${id}`, { method: 'DELETE' });
       const data = await response.json();
       if (data.status === 'success') {
         alert("Exam deleted successfully.");

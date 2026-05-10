@@ -195,7 +195,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchDbHealth = async () => {
     setIsCheckingHealth(true);
     try {
-      const res = await fetch('/api/health/database');
+      const res = await fetch('/api/health');
       const data = await res.json();
       
       // Also check row counts for syllabus and attendance
@@ -629,8 +629,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsCheckingHealth(true); // Re-use for loading state or add a dedicated one
     try {
-      console.log("[Attendance/Client] Requesting bulk sync via /api/attendance/bulk-sync");
-      const response = await fetch('/api/attendance/bulk-sync', {
+      console.log("[Attendance/Client] Requesting bulk sync via /api/attendance");
+      const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates })
@@ -1435,7 +1435,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onClick={async () => {
                       setIsCheckingHealth(true);
                       try {
-                        const res = await fetch('/api/health/sync-schema-olympiad', { method: 'POST' });
+                        const res = await fetch('/api/sync?action=olympiad', { method: 'POST' });
                         const data = await res.json();
                         alert(data.message || "Olympiad schema synced successfully.");
                       } catch (err: any) { alert("Sync Error: " + err.message); }
@@ -1456,7 +1456,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onClick={async () => {
                       setIsCheckingHealth(true);
                       try {
-                        const res = await fetch('/api/health/sync-schema', { method: 'POST' });
+                        const res = await fetch('/api/sync', { method: 'POST' });
                         const data = await res.json();
                         alert(data.message || "Student schema synced successfully.");
                       } catch (err: any) { alert("Sync Error: " + err.message); }
@@ -1492,7 +1492,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         if (!confirm("This will attempt to run all database setup scripts to restore missing tables. Already existing tables will be skipped. Proceed?")) return;
                         setIsCheckingHealth(true);
                         try {
-                          const res = await fetch('/api/health/sync-all', { method: 'POST' });
+                          const res = await fetch('/api/sync', { method: 'POST' });
                           const contentType = res.headers.get("content-type");
                           
                           if (contentType && contentType.includes("application/json")) {

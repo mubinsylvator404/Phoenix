@@ -290,110 +290,47 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
     }
   };
 
-  // --- 2. OLYMPIAD ROUTES ---
-  app.get("/api/olympiad/events", async (req, res) => {
+  // --- 2. CONSOLIDATED OLYMPIAD API ---
+  app.all("/api/olympiad", async (req, res) => {
+    const { action, id, type } = req.query;
+    const { method } = req;
+    
+    const tableMap = {
+      events: 'olympiad_events',
+      resources: 'olympiad_resources',
+      settings: 'olympiad_settings',
+      speakers: 'olympiad_speakers',
+      videos: 'olympiad_videos'
+    };
+
+    const table = tableMap[type as keyof typeof tableMap] || 'olympiad_events';
+
     try {
-      res.setHeader('Content-Type', 'application/json');
-      const { data, error } = await supabase.from('olympiad_events').select('*').order('date', { ascending: false });
-      if (error) throw error;
-      res.json(data || []);
+      if (method === 'GET') {
+        const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        return res.json({ success: true, data: data || [] });
+      }
+
+      if (method === 'POST') {
+        const body = req.body;
+        if (body.id && (String(body.id).startsWith('e') || String(body.id).startsWith('temp-'))) delete body.id;
+        const { data, error } = await supabase.from(table).upsert(body).select().single();
+        if (error) throw error;
+        return res.json({ success: true, data });
+      }
+
+      if (method === 'DELETE') {
+        if (!id) return res.status(400).json({ success: false, error: 'Missing ID' });
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) throw error;
+        return res.json({ success: true });
+      }
+
+      return res.status(405).json({ error: 'Method not allowed' });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return res.status(500).json({ success: false, error: error.message || String(error) });
     }
-  });
-
-  app.post("/api/olympiad/events", (req, res) => handleUpsert('olympiad_events', req.body, res));
-  app.post("/api/olympiad/speakers", (req, res) => handleUpsert('olympiad_speakers', req.body, res));
-  app.post("/api/olympiad/resources", (req, res) => handleUpsert('olympiad_resources', req.body, res));
-  app.post("/api/olympiad/videos", (req, res) => handleUpsert('olympiad_videos', req.body, res));
-
-  app.delete("/api/olympiad/events", async (req, res) => {
-    try {
-      const id = req.params['id'] || req.query['id'];
-      if (!id) return res.status(400).json({ error: "ID is required" });
-      const { error } = await supabase.from('olympiad_events').delete().eq('id', id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.delete("/api/olympiad/speakers", async (req, res) => {
-    try {
-      const id = req.params['id'] || req.query['id'];
-      if (!id) return res.status(400).json({ error: "ID is required" });
-      const { error } = await supabase.from('olympiad_speakers').delete().eq('id', id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.delete("/api/olympiad/resources", async (req, res) => {
-    try {
-      const id = req.params['id'] || req.query['id'];
-      if (!id) return res.status(400).json({ error: "ID is required" });
-      const { error } = await supabase.from('olympiad_resources').delete().eq('id', id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.delete("/api/olympiad/videos", async (req, res) => {
-    try {
-      const id = req.params['id'] || req.query['id'];
-      if (!id) return res.status(400).json({ error: "ID is required" });
-      const { error } = await supabase.from('olympiad_videos').delete().eq('id', id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.get("/api/olympiad/speakers", async (req, res) => {
-    try {
-      const { olympiad_id } = req.query;
-      let query = supabase.from('olympiad_speakers').select('*');
-      if (olympiad_id) query = query.eq('olympiad_id', olympiad_id as string);
-      const { data, error } = await query;
-      if (error) throw error;
-      res.json(data || []);
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.get("/api/olympiad/resources", async (req, res) => {
-    try {
-      const { olympiad_id } = req.query;
-      let query = supabase.from('olympiad_resources').select('*');
-      if (olympiad_id) query = query.eq('olympiad_id', olympiad_id as string);
-      const { data, error } = await query;
-      if (error) throw error;
-      res.json(data || []);
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.get("/api/olympiad/videos", async (req, res) => {
-    try {
-      const { olympiad_id } = req.query;
-      let query = supabase.from('olympiad_videos').select('*');
-      if (olympiad_id) query = query.eq('olympiad_id', olympiad_id as string);
-      const { data, error } = await query;
-      if (error) throw error;
-      res.json(data || []);
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.get("/api/olympiad/settings", async (req, res) => {
-    try {
-      const { data, error } = await supabase.from('olympiad_settings').select('*').eq('id', 'default').single();
-      if (error && error.code !== 'PGRST116') throw error;
-      res.json(data || { id: 'default', hero_title: 'Phoenix Supreme Olympiad' });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-  });
-
-  app.post("/api/olympiad/settings", async (req, res) => {
-    try {
-      const { data, error } = await supabase.from('olympiad_settings').upsert({ id: 'default', ...req.body }).select();
-      if (error) throw error;
-      res.json(data ? data[0] : {});
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
   // --- 3. STUDENT & ATTENDANCE ROUTES ---
@@ -422,219 +359,82 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
     }
   });
 
-  // Bulk sync route - can be reached via multiple paths for maximum compatibility
-  const handleBulkSync = async (req: express.Request, res: express.Response) => {
-    console.log(`[API/Attendance] Bulk sync requested via: ${req.originalUrl}`);
-    res.setHeader('Content-Type', 'application/json');
-    
+  // --- 3. CONSOLIDATED ATTENDANCE API ---
+  app.all("/api/attendance", async (req, res) => {
+    const { method, query, body } = req;
+    const action = query.action;
+
     try {
-      const { updates } = req.body;
-      if (!updates || !Array.isArray(updates)) {
-        console.error("[API/Attendance] Bulk Sync Error: Invalid or missing updates payload");
-        return res.status(400).json({ success: false, error: "Invalid updates payload. Expected array in 'updates' field." });
+      if (method === 'GET') {
+        const { data, error } = await supabase.from('students').select('*', { head: true, count: 'exact' });
+        return res.json({ connected: !error, count: data?.length || 0 });
       }
 
-      console.log(`[API/Attendance] Processing batch of ${updates.length} students...`);
-      let failures = 0;
-      const failureLogs: any[] = [];
-
-      for (const u of updates) {
-        try {
-          const { error } = await supabase.from('students').update({ 
-            daily_attendance: u.daily_attendance, 
-            attendance: u.attendance, 
-            updated_at: new Date().toISOString() 
-          }).eq('id', u.id);
-          
-          if (error) {
-            failures++;
-            failureLogs.push({ id: u.id, error: error.message });
-            console.error(`[API/Attendance] Failed to update student ID ${u.id}:`, error.message);
-          }
-        } catch (innerErr: any) {
-          failures++;
-          failureLogs.push({ id: u.id, error: innerErr.message });
-          console.error(`[API/Attendance] Exception for student ID ${u.id}:`, innerErr);
+      if (method === 'POST') {
+        if (action === 'bulk-sync' || req.path.includes('bulk-sync')) {
+          const { updates } = body;
+          if (!updates || !Array.isArray(updates)) return res.status(400).json({ error: "Invalid updates" });
+          const { error } = await supabase.from('students').upsert(updates).select();
+          if (error) throw error;
+          return res.json({ success: true, count: updates.length });
         }
+        // Single update
+        const { studentId, dailyAttendance, otherData } = body;
+        const { error } = await supabase.from('students').upsert({ id: studentId, daily_attendance: dailyAttendance, ...otherData, updated_at: new Date().toISOString() });
+        if (error) throw error;
+        return res.json({ success: true });
+      }
+      return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.all("/api/students/sync", (req, res) => res.redirect(307, '/api/attendance'));
+  app.all("/api/students/bulk-sync", (req, res) => res.redirect(307, '/api/attendance?action=bulk-sync'));
+  app.all("/api/sync/attendance", (req, res) => res.redirect(307, '/api/attendance?action=bulk-sync'));
+
+  // --- 4. CONSOLIDATED SYLLABUS API ---
+  app.all("/api/syllabus", async (req, res) => {
+    const { method, body, query } = req;
+    const { batch, subject, id, action } = query;
+
+    try {
+      if (method === 'GET') {
+        if (action === 'health' || req.path.includes('/health')) {
+          const { data, error } = await supabase.from('syllabus_progress').select('*').limit(1);
+          return res.json({ status: error ? "error" : "connected", error: error?.message });
+        }
+        const { data, error } = await supabase.from('syllabus_progress').select("*").eq("batch", batch).eq("subject", subject);
+        if (error) {
+          if (error.code === '42P01') return res.json({ error: "Table missing", tableMissing: true, data: [] });
+          throw error;
+        }
+        return res.json(data || []);
       }
 
-      if (failures > 0) {
-        console.warn(`[API/Attendance] Bulk sync completed with ${failures} errors.`);
-      } else {
-        console.log("[API/Attendance] Bulk sync completed successfully.");
+      if (method === 'POST') {
+        let payload = body;
+        if (payload.id && String(payload.id).startsWith("temp-")) delete payload.id;
+        const { data, error } = await supabase.from("syllabus_progress").upsert(payload, { onConflict: "batch,subject,chapter_name" }).select();
+        if (error) throw error;
+        return res.json(data ? data[0] : null);
       }
 
-      return res.status(200).json({ 
-        success: failures === 0, 
-        failures,
-        total: updates.length,
-        failureDetails: failures > 0 ? failureLogs : undefined
-      });
-    } catch (err: any) { 
-      console.error("[API/Attendance] Bulk Sync CRITICAL FAILURE:", err);
-      return res.status(500).json({ 
-        success: false, 
-        error: "Server Error", 
-        details: err.message 
-      }); 
-    }
-  };
-
-  app.post("/api/students/bulk-sync", handleBulkSync);
-  app.post("/api/attendance/bulk-sync", handleBulkSync);
-  app.post("/api/attendance", handleBulkSync); // Handle base path too
-  app.post("/api/sync/attendance", handleBulkSync);
-
-app.get("/api/syllabus/health", async (req, res) => {
-  try {
-    const testId = '00000000-0000-0000-0000-000000000000';
-    // 1. Test Read
-    const { data: readData, error: readError, status: readStatus } = await supabase
-      .from('syllabus_progress')
-      .select('*')
-      .limit(1);
-    
-    if (readError) {
-      return res.status(500).json({ 
-        status: "error", 
-        stage: "read",
-        message: readError.message, 
-        code: readError.code,
-        supabaseStatus: readStatus
-      });
-    }
-
-    // 2. Test Write (Upsert dummy)
-    const { error: writeError, status: writeStatus } = await supabase
-      .from('syllabus_progress')
-      .upsert({
-        id: testId,
-        batch: 'HEALTH_CHECK',
-        subject: 'HEALTH_CHECK',
-        chapter_name: 'HEALTH_CHECK',
-        teacher_name: 'SYSTEM',
-        status: 'Pending'
-      }, { onConflict: 'id' });
-
-    if (writeError) {
-      return res.status(500).json({ 
-        status: "error", 
-        stage: "write",
-        message: writeError.message, 
-        code: writeError.code,
-        supabaseStatus: writeStatus
-      });
-    }
-
-    // 3. Test Delete
-    const { error: deleteError } = await supabase
-      .from('syllabus_progress')
-      .delete()
-      .eq('id', testId);
-
-    res.json({ 
-      status: "connected", 
-      readStatus,
-      writeStatus,
-      isServiceRole,
-      canWrite: !writeError,
-      canDelete: !deleteError
-    });
-  } catch (error: any) {
-    res.status(500).json({ status: "exception", message: error.message });
-  }
-});
-
-app.get("/api/syllabus", async (req, res) => {
-  try {
-    const { batch, subject } = req.query;
-
-    const { data, error } = await supabase
-      .from("syllabus_progress")
-      .select("*")
-      .eq("batch", batch as string)
-      .eq("subject", subject as string);
-
-    if (error) {
-      if (error.code === '42P01') {
-        return res.status(200).json({ error: "Table missing", tableMissing: true, data: [] });
+      if (method === 'DELETE') {
+        const targetId = id || body.id;
+        if (!targetId) return res.status(400).json({ error: "Missing ID" });
+        const { error } = await supabase.from("syllabus_progress").delete().eq("id", targetId);
+        if (error) throw error;
+        return res.json({ success: true });
       }
-      throw error;
+      return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
+  });
 
-    return res.status(200).json(data);
-  } catch (err: any) {
-    console.error("GET Syllabus Error:", err);
-    return res.status(500).json({
-      error: "Failed to fetch syllabus progress",
-      message: err.message,
-      tableMissing: err.code === '42P01'
-    });
-  }
-});
-
-
-app.post("/api/syllabus", async (req, res) => {
-  try {
-    let payload = req.body;
-
-    // 🔥 FIX UUID issue
-    if (!payload.id || (typeof payload.id === 'string' && payload.id.startsWith("temp-"))) {
-      delete payload.id;
-    }
-
-    // 🔥 validation
-    if (payload.status === "Finished" && (!payload.total_lectures || payload.total_lectures <= 0)) {
-      return res.status(400).json({
-        error: "Total lectures required"
-      });
-    }
-
-    const { data, error } = await supabase
-      .from("syllabus_progress")
-      .upsert(payload, {
-        onConflict: "batch,subject,chapter_name"
-      })
-      .select();
-
-    if (error) {
-      console.error("Supabase error:", error);
-      return res.status(500).json({
-        error: error.message,
-        details: error.details
-      });
-    }
-
-    return res.status(200).json(data ? data[0] : null);
-  } catch (err: any) {
-    console.error("SERVER CRASH:", err);
-    return res.status(500).json({
-      error: "Server crash",
-      message: err.message
-    });
-  }
-});
-
-app.delete("/api/syllabus", async (req, res) => {
-  try {
-    const { id } = req.query;
-
-    const { error } = await supabase
-      .from("syllabus_progress")
-      .delete()
-      .eq("id", id as string);
-
-    if (error) throw error;
-
-    return res.status(200).json({ success: true });
-  } catch (err: any) {
-    console.error("DELETE Syllabus Error:", err);
-    return res.status(500).json({
-      error: "Failed to delete syllabus item",
-      message: err.message
-    });
-  }
-});
+  app.all("/api/syllabus/health", (req, res) => res.redirect(307, '/api/syllabus?action=health'));
 
 app.get("/api/analytics", async (req, res) => {
   try {
@@ -867,265 +667,91 @@ app.get("/api/location", async (req, res) => {
 
 // --- Static Asset Serving (Production) is handled near the bottom ---
 
-app.delete("/api/omr/exams/:id", async (req, res) => {
+// --- CONSOLIDATED OMR API ---
+app.all("/api/omr", async (req, res) => {
+  const { method } = req;
+  const { action, id } = req.query;
+  const RID = Math.random().toString(36).substring(7);
+  console.log(`[OMR Unified][${RID}] ${method} ${req.url}`);
+
   try {
-    const { id } = req.params;
+    if (method === 'GET') {
+      if (action === 'keys' && id) {
+        const { data, error } = await supabase.from('omr_answer_keys').select('*').eq('exam_id', id).order('question_number', { ascending: true });
+        if (error) throw error;
+        return res.json(data);
+      }
+      const { data, error } = await supabase.from('omr_exams').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return res.json(data);
+    } 
 
-    // 1. Delete associated answer keys
-    await supabase.from('omr_answer_keys').delete().eq('exam_id', id);
+    if (method === 'POST') {
+      if (action === 'scan') {
+        const { examId, extractedInfo, studentId } = req.body;
+        const { data: exam, error: examError } = await supabase.from('omr_exams').select('*').eq('id', examId).single();
+        if (examError) throw examError;
 
-    // 2. Delete associated results
-    await supabase.from('omr_results').delete().eq('exam_id', id);
+        const { data: keys, error: keysError } = await supabase.from('omr_answer_keys').select('*').eq('exam_id', examId).order('question_number', { ascending: true });
+        if (keysError) throw keysError;
 
-    // 3. Delete the exam itself
-    const { error } = await supabase.from('omr_exams').delete().eq('id', id);
+        const keyMap = new Map(keys.map(k => [k.question_number, k.correct_option]));
+        let correctCount = 0, wrongCount = 0, blankCount = 0, totalScore = 0;
 
-    if (error) throw error;
-
-    res.json({ status: "success", message: "Exam and all associated data deleted successfully" });
-  } catch (error: any) {
-    console.error("[OMR Exam] Delete error:", error);
-    res.status(500).json({ error: "Failed to delete exam", details: error.message });
-  }
-});
-
-app.delete("/api/omr/results/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { error } = await supabase.from('omr_results').delete().eq('id', id);
-    if (error) throw error;
-    res.json({ status: "success", message: "Result deleted successfully" });
-  } catch (error: any) {
-    console.error("[OMR Result] Delete error:", error);
-    res.status(500).json({ error: "Failed to delete result", details: error.message });
-  }
-});
-
-// OMR API Routes
-app.post("/api/omr/exams", async (req, res) => {
-  console.log("[OMR Exam] Creation request received:", req.body?.title);
-  try {
-    const { title, total_questions, options_per_question, marks_per_question, negative_marks, answer_key } = req.body;
-    
-    if (!title) {
-      return res.status(400).json({ error: "Exam title is required" });
-    }
-
-    // 1. Create Exam
-    const { data: exam, error: examError } = await supabase
-      .from('omr_exams')
-      .insert({
-        title,
-        total_questions,
-        options_per_question,
-        marks_per_question,
-        negative_marks
-      })
-      .select()
-      .single();
-
-    if (examError) {
-      console.error("[OMR Exam] Supabase Insert Error:", examError);
-      if (examError.message?.includes('schema cache') || examError.message?.includes('does not exist')) {
-        return res.status(404).json({ 
-          error: "Database table not found", 
-          details: "The 'omr_exams' table has not been created in Supabase yet. Please run the OMR SQL script in your Supabase SQL Editor."
+        const evaluatedAnswers = extractedInfo.answers.map((ans: any) => {
+          const qNum = parseInt(ans.question);
+          const correctOption = keyMap.get(qNum);
+          const marked = ans.marked ? String(ans.marked).toUpperCase() : null;
+          let status = 'BLANK';
+          
+          if (!marked || marked === 'NULL' || marked === 'NONE') { blankCount++; }
+          else if (marked === correctOption) { status = 'CORRECT'; correctCount++; totalScore += Number(exam.marks_per_question || 1); }
+          else { status = 'WRONG'; wrongCount++; totalScore -= Math.abs(Number(exam.negative_marks || 0)); }
+          return { question: qNum, marked, correctOption, status };
         });
+
+        const { data: savedResult, error: saveError } = await supabase.from('omr_results').insert({
+          exam_id: examId, student_name: extractedInfo.student_name || "Unknown",
+          student_roll: extractedInfo.student_roll || "N/A", set_code: extractedInfo.set_code || "A",
+          total_score: totalScore, correct_count: correctCount, wrong_count: wrongCount, blank_count: blankCount,
+          answers: evaluatedAnswers, student_id: studentId || null
+        }).select().single();
+        if (saveError) throw saveError;
+        return res.json({ status: "success", result: savedResult });
       }
-      throw examError;
-    }
 
-    console.log("[OMR Exam] Exam created successfully:", exam.id);
+      // Create Exam
+      const { title, total_questions, options_per_question, marks_per_question, negative_marks, answer_key } = req.body;
+      const { data: exam, error: examError } = await supabase.from('omr_exams').insert({ title, total_questions, options_per_question, marks_per_question, negative_marks }).select().single();
+      if (examError) throw examError;
 
-    // 2. Save Answer Key
-    if (answer_key && Array.isArray(answer_key)) {
-      const keysToInsert = answer_key.map((ans: string, index: number) => ({
-        exam_id: exam.id,
-        question_number: index + 1,
-        correct_option: ans
-      }));
-
-      const { error: keyError } = await supabase
-        .from('omr_answer_keys')
-        .insert(keysToInsert);
-
-      if (keyError) {
-        console.error("[OMR Exam] Answer Key Insert Error:", keyError);
-        if (keyError.message?.includes('schema cache') || keyError.message?.includes('does not exist')) {
-          return res.status(404).json({ 
-            error: "Database table not found", 
-            details: "The 'omr_answer_keys' table has not been created in Supabase yet. Please run the OMR SQL script in your Supabase SQL Editor."
-          });
-        }
-        throw keyError;
+      if (answer_key && Array.isArray(answer_key)) {
+        const keysToInsert = answer_key.map((ans: string, index: number) => ({
+          exam_id: exam.id, question_number: index + 1, correct_option: ans
+        }));
+        await supabase.from('omr_answer_keys').insert(keysToInsert);
       }
-      console.log("[OMR Exam] Answer keys saved for exam:", exam.id);
+      return res.json({ status: "success", exam });
     }
 
-    res.json({ status: "success", exam });
-  } catch (error: any) {
-    console.error("[OMR Exam] Unexpected creation error:", error);
-    res.status(500).json({ 
-      error: "Failed to create OMR exam", 
-      details: error.message || "Unknown error",
-      raw: JSON.stringify(error)
-    });
-  }
-});
-
-app.get("/api/omr/exams", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('omr_exams')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: "Failed to fetch exams" });
-  }
-});
-
-app.get("/api/omr/exams/:id/keys", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('omr_answer_keys')
-      .select('*')
-      .eq('exam_id', req.params.id)
-      .order('question_number', { ascending: true });
-    
-    if (error) throw error;
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: "Failed to fetch answer keys" });
-  }
-});
-
-app.post("/api/omr/scan", async (req, res) => {
-  try {
-    const { examId, extractedInfo, studentId } = req.body;
-    
-    if (!examId || !extractedInfo) {
-      return res.status(400).json({ error: "Exam ID and extracted information are required" });
-    }
-
-    console.log(`[OMR Verify] Verifying results for exam: ${examId}, studentId: ${studentId || 'None'}`);
-
-    // 1. Fetch Exam Details for Scoring
-    const { data: exam, error: examError } = await supabase
-      .from('omr_exams')
-      .select('*')
-      .eq('id', examId)
-      .single();
-
-    if (examError) throw examError;
-
-    // 2. Fetch Truth (Answer Key)
-    const { data: keys, error: keysError } = await supabase
-      .from('omr_answer_keys')
-      .select('*')
-      .eq('exam_id', examId)
-      .order('question_number', { ascending: true });
-
-    if (keysError) throw keysError;
-
-    const keyMap = new Map(keys.map(k => [k.question_number, k.correct_option]));
-    
-    // 3. Evaluate Results
-    let correctCount = 0;
-    let wrongCount = 0;
-    let blankCount = 0;
-    let totalScore = 0;
-
-    const { answers: rawAnswers, student_name, student_roll, set_code } = extractedInfo;
-    
-    if (!Array.isArray(rawAnswers)) {
-      throw new Error("Invalid answers format provided by AI extraction");
-    }
-
-    const evaluatedAnswers = rawAnswers.map((ans: any) => {
-      const qNum = parseInt(ans.question);
-      const correctOption = keyMap.get(qNum);
-      const marked = ans.marked ? String(ans.marked).toUpperCase() : null;
+    if (method === 'DELETE') {
+      const targetId = id || (req.params as any).id; // Support both
+      if (!targetId) return res.status(400).json({ error: "ID is required" });
       
-      let status = 'BLANK';
-      
-      if (!marked || marked === 'NULL' || marked === 'NONE') {
-        blankCount++;
-      } else if (marked === correctOption) {
-        status = 'CORRECT';
-        correctCount++;
-        totalScore += Number(exam.marks_per_question || 1);
-      } else {
-        status = 'WRONG';
-        wrongCount++;
-        totalScore -= Math.abs(Number(exam.negative_marks || 0));
-      }
-
-      return {
-        question: qNum,
-        marked,
-        correctOption,
-        status
-      };
-    });
-
-    // 4. Save Final Result to DB
-    const insertPayload: any = {
-      exam_id: examId,
-      student_name: student_name || "Unknown",
-      student_roll: student_roll || "N/A",
-      set_code: set_code || "A",
-      total_score: totalScore,
-      correct_count: correctCount,
-      wrong_count: wrongCount,
-      blank_count: blankCount,
-      answers: evaluatedAnswers
-    };
-
-    // If studentId is provided, add it to payload
-    if (studentId) {
-      insertPayload.student_id = studentId;
+      await supabase.from('omr_answer_keys').delete().eq('exam_id', targetId);
+      await supabase.from('omr_results').delete().eq('exam_id', targetId);
+      const { error } = await supabase.from('omr_exams').delete().eq('id', targetId);
+      if (error) throw error;
+      return res.json({ status: "success", message: "Exam deleted" });
     }
 
-    const { data: savedResult, error: saveError } = await supabase
-      .from('omr_results')
-      .insert(insertPayload)
-      .select()
-      .single();
-
-    if (saveError) {
-      console.error("[OMR Verify] DB Save Error:", saveError);
-      // Fallback: If student_id causes error (column missing), try without it
-      if (studentId && (saveError.message.includes('student_id') || saveError.code === '42703')) {
-        delete insertPayload.student_id;
-        const { data: retryData, error: retryError } = await supabase
-          .from('omr_results')
-          .insert(insertPayload)
-          .select()
-          .single();
-        if (retryError) throw retryError;
-        return res.json({ status: "success", result: retryData, warning: "Student linking disabled: student_id column missing in DB" });
-      }
-      throw saveError;
-    }
-
-    console.log(`[OMR Verify] Saved result for ${savedResult.student_name}: Score ${totalScore}`);
-
-    res.json({
-      status: "success",
-      result: savedResult
-    });
-
-  } catch (error: any) {
-    console.error("OMR Verification error:", error);
-    res.status(500).json({ 
-      error: "Evaluation failed", 
-      details: error.message || "An error occurred while evaluating the OMR data." 
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err: any) {
+    return res.status(500).json({ status: "error", error: err.message || String(err) });
   }
 });
+
+
 
 
 
