@@ -142,6 +142,8 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       // Final patches
       try { 
         await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE public.students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); 
+        await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;" });
+        await supabase.rpc('run_sql', { sql: "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all access students') THEN CREATE POLICY \"Public all access students\" ON public.students FOR ALL USING (true) WITH CHECK (true); END IF; END $$;" });
         await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
       } catch (e) {}
 
@@ -307,33 +309,75 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
   });
 
   // --- 3. CONSOLIDATED ATTENDANCE API ---
-  app.all("/api/attendance", async (req, res) => {
+  app.all(["/api/attendance", "/api/attendance/*splat"], async (req, res) => {
     const { method, query, body } = req;
     const action = query.action;
+    
+    // Debug log for troubleshooting
+    if (method === 'POST') {
+      console.log(`[API/Attendance] Request received: ${method} ${req.originalUrl}`);
+    }
 
     try {
       if (method === 'GET') {
-        const { data, error } = await supabase.from('students').select('*', { head: true, count: 'exact' });
-        return res.json({ connected: !error, count: data?.length || 0 });
+        const { count, error } = await supabase.from('students').select('*', { head: true, count: 'exact' });
+        return res.json({ connected: !error, count: count || 0 });
       }
 
       if (method === 'POST') {
-        if (action === 'bulk-sync' || req.path.includes('bulk-sync')) {
-          const { updates } = body;
-          if (!updates || !Array.isArray(updates)) return res.status(400).json({ error: "Invalid updates" });
-          const { error } = await supabase.from('students').upsert(updates).select();
-          if (error) throw error;
-          return res.json({ success: true, count: updates.length });
+        const updates = body.updates;
+        if (updates && Array.isArray(updates)) {
+          console.log(`[API/Attendance] Bulk sync: ${updates.length} students`);
+          // Ensure every update uses snake_case for the database
+          const mappedUpdates = updates.map(u => ({
+            id: u.id,
+            daily_attendance: u.daily_attendance || u.dailyAttendance || {},
+            attendance: u.attendance !== undefined ? u.attendance : 0,
+            updated_at: new Date().toISOString()
+          }));
+
+          const { error } = await supabase.from('students').upsert(mappedUpdates).select();
+          if (error) {
+            console.error("[API/Attendance] Bulk Upsert Error:", error);
+            throw error;
+          }
+          return res.json({ success: true, count: mappedUpdates.length });
         }
-        // Single update
-        const { studentId, dailyAttendance, otherData } = body;
-        const { error } = await supabase.from('students').upsert({ id: studentId, daily_attendance: dailyAttendance, ...otherData, updated_at: new Date().toISOString() });
-        if (error) throw error;
+
+        // Single update fallback
+        const { studentId, dailyAttendance, daily_attendance, attendance, otherData } = body;
+        const id = studentId || body.id;
+        
+        if (!id) {
+          return res.status(400).json({ error: "Missing ID for update" });
+        }
+        
+        const finalAttendance = daily_attendance || dailyAttendance || {};
+        const payload = { 
+          id, 
+          daily_attendance: finalAttendance,
+          attendance: attendance !== undefined ? attendance : 0,
+          ...otherData, 
+          updated_at: new Date().toISOString() 
+        };
+        
+        console.log(`[API/Attendance] Single update for: ${id}`);
+        const { error } = await supabase.from('students').upsert(payload);
+        
+        if (error) {
+          console.error("[API/Attendance] Single Upsert Error:", error);
+          throw error;
+        }
         return res.json({ success: true });
       }
       return res.status(405).json({ error: 'Method not allowed' });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error("[API/Attendance] Error:", err.message);
+      return res.status(500).json({ 
+        success: false, 
+        error: err.message, 
+        details: err.details || "Database operation failed" 
+      });
     }
   });
 
