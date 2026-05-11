@@ -110,43 +110,52 @@ app.get(["/api/ping", "/ping"], (req, res) => {
 // diagnostics
 app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new Date().toISOString() }));
 
-  // --- 1. CRITICAL SYNC & HEALTH ROUTES ---
+// --- 1. CRITICAL SYNC & HEALTH ROUTES ---
+// Extracted sync logic for reuse
+async function runMasterSync(supabase: any) {
+  console.log("[SchemaSync] Master sync starting...");
+  const results: any[] = [];
+  const sqlFiles = ['supabase_schema.sql', 'syllabus_schema.sql', 'olympiad_db_schema.sql', 'omr_schema.sql', 'analytics_schema.sql'];
+
+  for (const fileName of sqlFiles) {
+    try {
+      const filePath = path.join(process.cwd(), fileName);
+      if (fs.existsSync(filePath)) {
+        const sql = fs.readFileSync(filePath, 'utf8');
+        const { data, error: sqlError } = await supabase.rpc('run_sql', { sql });
+        results.push({ 
+          file: fileName, 
+          status: sqlError ? 'error' : (data?.success === false ? 'failure' : 'success'), 
+          message: sqlError ? sqlError.message : (data?.error || 'OK'),
+          code: sqlError ? sqlError.code : null
+        });
+      } else {
+        results.push({ file: fileName, status: 'skipped', message: 'File not found' });
+      }
+    } catch (e: any) {
+      results.push({ file: fileName, status: 'exception', message: e.message });
+    }
+  }
+
+  // Final patches
+  try { 
+    await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE public.students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); 
+    await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;" });
+    await supabase.rpc('run_sql', { sql: "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all access students') THEN CREATE POLICY \"Public all access students\" ON public.students FOR ALL USING (true) WITH CHECK (true); END IF; END $$;" });
+    await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
+  } catch (e: any) {
+    console.error("[SchemaSync] Patch error:", e.message);
+  }
+  
+  return results;
+}
+
   // Master Sync route for all schemas
   app.all(["/api/health/sync-all", "/api/sync"], async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     try {
       console.log(`[SchemaSync] Master sync requested via ${req.method} ${req.originalUrl}`);
-      const results: any[] = [];
-      const sqlFiles = ['supabase_schema.sql', 'syllabus_schema.sql', 'olympiad_db_schema.sql', 'omr_schema.sql', 'analytics_schema.sql'];
-
-      for (const fileName of sqlFiles) {
-        try {
-          const filePath = path.join(process.cwd(), fileName);
-          if (fs.existsSync(filePath)) {
-            const sql = fs.readFileSync(filePath, 'utf8');
-            const { data, error: sqlError } = await supabase.rpc('run_sql', { sql });
-            results.push({ 
-              file: fileName, 
-              status: sqlError ? 'error' : (data?.success === false ? 'failure' : 'success'), 
-              message: sqlError ? sqlError.message : (data?.error || 'OK'),
-              code: sqlError ? sqlError.code : null
-            });
-          } else {
-            results.push({ file: fileName, status: 'skipped', message: 'File not found' });
-          }
-        } catch (e: any) {
-          results.push({ file: fileName, status: 'exception', message: e.message });
-        }
-      }
-
-      // Final patches
-      try { 
-        await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE public.students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); 
-        await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;" });
-        await supabase.rpc('run_sql', { sql: "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all access students') THEN CREATE POLICY \"Public all access students\" ON public.students FOR ALL USING (true) WITH CHECK (true); END IF; END $$;" });
-        await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
-      } catch (e) {}
-
+      const results = await runMasterSync(supabase);
       const isRpcMissing = results.some(r => r.message && r.message.includes('does not exist'));
 
       res.json({ 
@@ -282,36 +291,10 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
     }
   });
 
-  // --- 3. STUDENT & ATTENDANCE ROUTES ---
-  app.post("/api/students/sync", async (req, res) => {
-    console.log("[API/Attendance] Individual sync requested for:", req.body.studentId);
-    try {
-      const { studentId, dailyAttendance, otherData } = req.body;
-      if (!studentId) {
-        return res.status(400).json({ success: false, error: "Missing studentId" });
-      }
-
-      const updatePayload: any = { ...otherData };
-      if (dailyAttendance) updatePayload.daily_attendance = dailyAttendance;
-      updatePayload.updated_at = new Date().toISOString();
-      
-      const { error } = await supabase.from('students').update(updatePayload).eq('id', studentId);
-      if (error) {
-        console.error(`[API/Attendance] Supabase Sync Error for ${studentId}:`, error);
-        throw error;
-      }
-      
-      res.json({ success: true });
-    } catch (err: any) { 
-      console.error("[API/Attendance] Sync Crash:", err);
-      res.status(500).json({ success: false, error: err.message, details: "Internal Server Error during individual sync" }); 
-    }
-  });
-
   // --- 3. CONSOLIDATED ATTENDANCE API ---
-  app.all(["/api/attendance", "/api/attendance/*splat"], async (req, res) => {
+  // Using .use and manual method check to avoid common Express 5 path-to-regexp syntax errors
+  app.use("/api/attendance", async (req, res) => {
     const { method, query, body } = req;
-    const action = query.action;
     
     // Debug log for troubleshooting
     if (method === 'POST') {
@@ -326,49 +309,55 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
       if (method === 'POST') {
         const updates = body.updates;
+        let finalMappedUpdates = [];
+
         if (updates && Array.isArray(updates)) {
           console.log(`[API/Attendance] Bulk sync: ${updates.length} students`);
-          // Ensure every update uses snake_case for the database
-          const mappedUpdates = updates.map(u => ({
+          finalMappedUpdates = updates.map((u: any) => ({
             id: u.id,
             daily_attendance: u.daily_attendance || u.dailyAttendance || {},
             attendance: u.attendance !== undefined ? u.attendance : 0,
             updated_at: new Date().toISOString()
           }));
+        } else {
+          // Single update fallback
+          const { studentId, dailyAttendance, daily_attendance, attendance, otherData } = body;
+          const id = studentId || body.id;
+          
+          if (!id) {
+            return res.status(400).json({ error: "Missing ID for update" });
+          }
+          
+          const finalAttendance = daily_attendance || dailyAttendance || {};
+          finalMappedUpdates = [{ 
+            id, 
+            daily_attendance: finalAttendance,
+            attendance: attendance !== undefined ? attendance : 0,
+            ...otherData, 
+            updated_at: new Date().toISOString() 
+          }];
+          console.log(`[API/Attendance] Single update for: ${id}`);
+        }
 
-          const { error } = await supabase.from('students').upsert(mappedUpdates).select();
+        if (finalMappedUpdates.length > 0) {
+          let { error } = await supabase.from('students').upsert(finalMappedUpdates).select();
+          
+          // Auto-sync fix: if table is missing, run sync and retry
+          if (error && error.code === '42P01') {
+            console.log("[API/Attendance] Table 'students' missing. Attempting auto-sync...");
+            await runMasterSync(supabase);
+            const { error: retryError } = await supabase.from('students').upsert(finalMappedUpdates).select();
+            error = retryError;
+          }
+
           if (error) {
-            console.error("[API/Attendance] Bulk Upsert Error:", error);
+            console.error("[API/Attendance] Upsert Error:", error);
             throw error;
           }
-          return res.json({ success: true, count: mappedUpdates.length });
-        }
-
-        // Single update fallback
-        const { studentId, dailyAttendance, daily_attendance, attendance, otherData } = body;
-        const id = studentId || body.id;
-        
-        if (!id) {
-          return res.status(400).json({ error: "Missing ID for update" });
+          return res.json({ success: true, count: finalMappedUpdates.length });
         }
         
-        const finalAttendance = daily_attendance || dailyAttendance || {};
-        const payload = { 
-          id, 
-          daily_attendance: finalAttendance,
-          attendance: attendance !== undefined ? attendance : 0,
-          ...otherData, 
-          updated_at: new Date().toISOString() 
-        };
-        
-        console.log(`[API/Attendance] Single update for: ${id}`);
-        const { error } = await supabase.from('students').upsert(payload);
-        
-        if (error) {
-          console.error("[API/Attendance] Single Upsert Error:", error);
-          throw error;
-        }
-        return res.json({ success: true });
+        return res.status(400).json({ error: "No valid update data provided" });
       }
       return res.status(405).json({ error: 'Method not allowed' });
     } catch (err: any) {
@@ -380,6 +369,7 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       });
     }
   });
+
 
   app.all("/api/students/sync", (req, res) => res.redirect(307, '/api/attendance'));
   app.all("/api/students/bulk-sync", (req, res) => res.redirect(307, '/api/attendance?action=bulk-sync'));
@@ -782,7 +772,7 @@ app.all("/api/omr", async (req, res) => {
   }
 
   // 3. Fallback for SPAs
-  app.get('*all', (req, res, next) => {
+  app.get("*all", (req, res, next) => {
     // Skip if it's an API request
     if (req.path.startsWith('/api/')) return next();
     
@@ -821,31 +811,19 @@ app.all("/api/omr", async (req, res) => {
 
   // FINAL CATCH-ALL for any missed API requests or non-GET requests
   // This prevents HTML responses for failed POST/PUT/DELETE calls
-  app.all(/(.*)/, (req, res, next) => {
+  app.all(/^\/api\/.*$/, (req, res) => {
     if (res.headersSent) return;
-    
-    // Improved detection for API requests or requests that should never return HTML
-    const isApiRequest = req.path.startsWith('/api/') || 
-                         req.url.startsWith('/api/') || 
-                         req.method !== 'GET' ||
-                         req.headers.accept?.includes('application/json');
-
-    if (isApiRequest) {
-      console.warn(`[Server] Unhandled API route: ${req.method} ${req.url} (Path: ${req.path})`);
-      return res.status(404).json({
-        error: "Route not found",
-        method: req.method,
-        path: req.path,
-        url: req.url,
-        tip: "Ensure the database schema is synced in the Admin Dashboard and the endpoint is correctly defined."
-      });
-    }
-    next();
+    res.status(404).json({ error: "API Route Not Found", path: req.path });
   });
 
+  app.all(/^(?!\/api\/).*$/, (req, res) => {
+    if (res.headersSent) return;
+    res.status(404).send("Not Found");
+  });
   // Global Error Handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error("Global Error Caught:", err);
+    if (res.headersSent) return next(err);
     res.status(err.status || 500).json({
       error: err.message || "Internal Server Error",
       details: err.details || null

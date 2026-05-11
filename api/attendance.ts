@@ -32,38 +32,33 @@ export default async function handler(req: any, res: any) {
       
       // If we have updates array, it's a bulk sync
       if (updates && Array.isArray(updates)) {
-        let successes = 0;
-        let failures = 0;
-        const failureDetails: any[] = [];
-
-        for (const u of updates) {
-          if (!u.id) continue;
-          const { error } = await supabase.from('students').update({ 
-            daily_attendance: u.daily_attendance, 
-            attendance: u.attendance, 
-            updated_at: new Date().toISOString() 
-          }).eq('id', u.id);
-          
-          if (error) {
-            failures++;
-            failureDetails.push({ id: u.id, error: error.message });
-          } else {
-            successes++;
-          }
+        console.log(`[API/Attendance] Bulk upsert for ${updates.length} students`);
+        const { error } = await supabase.from('students').upsert(updates.map((u: any) => ({
+          id: u.id,
+          daily_attendance: u.daily_attendance || u.dailyAttendance || {},
+          attendance: u.attendance !== undefined ? u.attendance : 0,
+          updated_at: new Date().toISOString()
+        })));
+        
+        if (error) {
+          console.error("[API/Attendance] Upsert Error:", error);
+          return res.status(500).json({ success: false, error: error.message });
         }
-        return res.status(200).json({ success: failures === 0, successes, failures, failureDetails });
+        return res.status(200).json({ success: true, count: updates.length });
       }
 
       // Single update fallback
-      const { id, daily_attendance, attendance } = body || {};
-      if (id) {
-        const { data, error } = await supabase.from('students').update({
-          daily_attendance,
-          attendance,
+      const { id, studentId, daily_attendance, dailyAttendance, attendance } = body || {};
+      const finalId = id || studentId;
+      if (finalId) {
+        const { error } = await supabase.from('students').upsert({
+          id: finalId,
+          daily_attendance: daily_attendance || dailyAttendance || {},
+          attendance: attendance !== undefined ? attendance : 0,
           updated_at: new Date().toISOString()
-        }).eq('id', id).select();
+        });
         if (error) throw error;
-        return res.status(200).json({ success: true, data });
+        return res.status(200).json({ success: true });
       }
 
       return res.status(400).json({ success: false, error: 'Invalid payload' });

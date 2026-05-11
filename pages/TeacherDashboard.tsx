@@ -249,7 +249,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     if (updates.length === 0) return;
 
     try {
-      const response = await fetch('/api/attendance/bulk-sync', {
+      const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates })
@@ -279,12 +279,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         } else {
           const text = await response.text();
           console.error("Non-JSON sync response:", text);
-          alert("Received non-JSON response from server during sync. Please try 'Master Sync' in Admin Dashboard.");
+          alert("Received non-JSON response from server during sync. If this persists, please contact support.");
         }
       } else {
         const text = await response.text();
         console.error("Sync error status:", response.status, text);
-        alert(`Failed to sync attendance (Status ${response.status}). Please try 'Master Sync' in Admin Dashboard.`);
+        alert(`Failed to sync attendance (Status ${response.status}). If this persists, please contact support.`);
       }
     } catch (err: any) {
       console.error("Bulk sync error:", err);
