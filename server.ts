@@ -292,13 +292,15 @@ async function runMasterSync(supabase: any) {
   });
 
   // --- 3. CONSOLIDATED ATTENDANCE API ---
-  // Using .use and manual method check to avoid common Express 5 path-to-regexp syntax errors
   app.use("/api/attendance", async (req, res) => {
     const { method, query, body } = req;
+    const action = query.action;
     
-    // Debug log for troubleshooting
+    // Debug log for troubleshooting - REQUIRED BY REQUEST
+    console.log(`[API/Attendance] Incoming ${method} request`);
+    console.log("Action:", action);
     if (method === 'POST') {
-      console.log(`[API/Attendance] Request received: ${method} ${req.originalUrl}`);
+      console.log("Attendance body:", JSON.stringify(body, null, 2));
     }
 
     try {
@@ -308,25 +310,78 @@ async function runMasterSync(supabase: any) {
       }
 
       if (method === 'POST') {
+        // 1. Handle NEW 'save' action for attendance logs - REQUIRED BY REQUEST
+        if (action === 'save') {
+          const { batch, subject, teacher, lecture_date, students, attendance_status } = body;
+          
+          if (!lecture_date) {
+            return res.status(400).json({ success: false, error: "lecture_date is required for 'save' action" });
+          }
+
+          const logPayload = {
+            batch: batch || 'All',
+            subject: subject || 'General',
+            teacher: teacher || 'Unknown',
+            lecture_date,
+            students: students || [],
+            attendance_status: attendance_status || {},
+            created_at: new Date().toISOString()
+          };
+
+          console.log(`[API/Attendance] Saving to 'attendance' table: ${lecture_date}`);
+          const { error: logError } = await supabase.from('attendance').insert(logPayload);
+
+          if (logError) {
+            console.error("[API/Attendance] Log Insert Error:", logError);
+            // We continue even if log fails, but we'll report it
+          }
+
+          // 2. Also update 'students' table to maintain aggregated stats
+          // We expect the frontend to send aggregated 'updates' if it wants stats sync
+          // OR we can derive it from attendance_status if 'updates' is missing
+          const updates = body.updates;
+          if (updates && Array.isArray(updates)) {
+            console.log(`[API/Attendance] Syncing ${updates.length} students to main table`);
+            
+            // Clean updates to ensure they match schema exactly
+            const cleanedUpdates = updates.map((u: any) => ({
+              id: u.id,
+              daily_attendance: u.daily_attendance || u.dailyAttendance || {},
+              attendance: u.attendance !== undefined ? u.attendance : 0,
+              updated_at: new Date().toISOString()
+            }));
+
+            const { error: studentError } = await supabase.from('students').upsert(cleanedUpdates);
+            if (studentError) {
+              console.error("[API/Attendance] Student sync error:", studentError);
+              // Report error if both failed
+              if (logError) return res.status(500).json({ success: false, error: studentError.message });
+            }
+          }
+
+          return res.json({ 
+            success: true, 
+            logSaved: !logError,
+            studentsSynced: true 
+          });
+        }
+
+        // 2. Handle legacy bulk/single updates for students table
         const updates = body.updates;
         let finalMappedUpdates = [];
 
         if (updates && Array.isArray(updates)) {
-          console.log(`[API/Attendance] Bulk sync: ${updates.length} students`);
+          console.log(`[API/Attendance] legacy bulk sync: ${updates.length} students`);
           finalMappedUpdates = updates.map((u: any) => ({
             id: u.id,
             daily_attendance: u.daily_attendance || u.dailyAttendance || {},
             attendance: u.attendance !== undefined ? u.attendance : 0,
             updated_at: new Date().toISOString()
           }));
-        } else {
+        } else if (body.id || body.studentId) {
           // Single update fallback
           const { studentId, dailyAttendance, daily_attendance, attendance, otherData } = body;
           const id = studentId || body.id;
-          
-          if (!id) {
-            return res.status(400).json({ error: "Missing ID for update" });
-          }
           
           const finalAttendance = daily_attendance || dailyAttendance || {};
           finalMappedUpdates = [{ 
@@ -336,36 +391,28 @@ async function runMasterSync(supabase: any) {
             ...otherData, 
             updated_at: new Date().toISOString() 
           }];
-          console.log(`[API/Attendance] Single update for: ${id}`);
+          console.log(`[API/Attendance] legacy single update for: ${id}`);
         }
 
         if (finalMappedUpdates.length > 0) {
-          let { error } = await supabase.from('students').upsert(finalMappedUpdates).select();
+          const { error } = await supabase.from('students').upsert(finalMappedUpdates);
           
-          // Auto-sync fix: if table is missing, run sync and retry
-          if (error && error.code === '42P01') {
-            console.log("[API/Attendance] Table 'students' missing. Attempting auto-sync...");
-            await runMasterSync(supabase);
-            const { error: retryError } = await supabase.from('students').upsert(finalMappedUpdates).select();
-            error = retryError;
-          }
-
           if (error) {
-            console.error("[API/Attendance] Upsert Error:", error);
+            console.error("[API/Attendance] legacy upsert error:", error);
             throw error;
           }
           return res.json({ success: true, count: finalMappedUpdates.length });
         }
         
-        return res.status(400).json({ error: "No valid update data provided" });
+        return res.status(400).json({ error: "No valid action or update data provided" });
       }
       return res.status(405).json({ error: 'Method not allowed' });
     } catch (err: any) {
-      console.error("[API/Attendance] Error:", err.message);
+      console.error("[API/Attendance] Caught Exception:", err.message);
       return res.status(500).json({ 
         success: false, 
-        error: err.message, 
-        details: err.details || "Database operation failed" 
+        error: String(err.message || err), 
+        details: err.details || "Internal server crash" 
       });
     }
   });

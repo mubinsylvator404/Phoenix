@@ -247,12 +247,24 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       });
 
     if (updates.length === 0) return;
+    
+    // Prepare log payload - REQUIRED BY REQUEST
+    const logPayload = {
+      batch: selectedBatch,
+      subject: teacher?.subject || 'General',
+      teacher: teacher?.name || 'Unknown',
+      lecture_date: attendanceDate,
+      students: myStudents.map(s => s.id),
+      attendance_status: attendanceMap,
+      updates: updates // include legacy updates for aggregated sync
+    };
 
     try {
-      const response = await fetch('/api/attendance', {
+      // Use specifically /api/attendance?action=save as requested
+      const response = await fetch('/api/attendance?action=save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
+        body: JSON.stringify(logPayload)
       });
 
       if (response.ok) {

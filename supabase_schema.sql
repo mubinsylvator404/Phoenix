@@ -134,7 +134,19 @@ CREATE TABLE IF NOT EXISTS public.chatbot_knowledge (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 11. Helper Function to run SQL (for master sync)
+-- 11. Attendance Logs Table
+CREATE TABLE IF NOT EXISTS public.attendance (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    batch TEXT,
+    subject TEXT,
+    teacher TEXT,
+    lecture_date TEXT,
+    students JSONB DEFAULT '[]',
+    attendance_status JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 12. Helper Function to run SQL (for master sync)
 -- This requires elevated permissions to create, but we include it for completeness
 -- The user might need to run this manually once in Supabase SQL editor if RPC fails.
 CREATE OR REPLACE FUNCTION public.run_sql(sql text)
