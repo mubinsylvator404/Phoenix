@@ -241,6 +241,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
         return {
           id: s.id,
+          name: s.name, // Added name to satisfy DB constraints during upsert
           daily_attendance: newDailyAttendance,
           attendance: formattedPercentage
         };

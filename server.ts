@@ -266,17 +266,26 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
         // 2. Direct upsert to 'students' table for aggregated stats
         if (updates && Array.isArray(updates)) {
-          const cleanedUpdates = updates.map((u: any) => ({
-            id: u.id,
-            daily_attendance: u.daily_attendance || u.dailyAttendance || {},
-            attendance: u.attendance !== undefined ? u.attendance : 0,
-            updated_at: new Date().toISOString()
-          }));
+          // Clean updates and filter out records missing required NOT NULL fields (id, name)
+          const validUpdates = updates
+            .filter((u: any) => u.id && u.name)
+            .map((u: any) => ({
+              id: u.id,
+              name: u.name,
+              daily_attendance: u.daily_attendance || u.dailyAttendance || {},
+              attendance: u.attendance !== undefined ? u.attendance : 0,
+              updated_at: new Date().toISOString()
+            }));
 
-          const { error: studentError } = await supabase.from('students').upsert(cleanedUpdates);
-          if (studentError) {
-            console.error("[API/Attendance] Aggregated update error:", studentError);
-            return res.status(500).json({ success: false, error: studentError.message });
+          if (validUpdates.length > 0) {
+            console.log(`[API/Attendance] Upserting ${validUpdates.length} valid student stats`);
+            const { error: studentError } = await supabase.from('students').upsert(validUpdates);
+            if (studentError) {
+              console.error("[API/Attendance] Aggregated update error:", studentError);
+              return res.status(500).json({ success: false, error: studentError.message });
+            }
+          } else {
+            console.warn("[API/Attendance] No valid student updates identified in payload");
           }
         }
 
