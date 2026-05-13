@@ -241,11 +241,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
         return {
           id: s.id,
-          name: s.name, // Added name to satisfy DB constraints during upsert
+          name: s.name, 
+          email: s.email,
+          batch: s.batch || 'All',
           daily_attendance: newDailyAttendance,
           attendance: formattedPercentage
         };
-      });
+      })
+      .filter(u => u.id && u.name && u.email); // Extra safety check on the mapped result
 
     if (updates.length === 0) return;
     

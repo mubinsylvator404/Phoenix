@@ -266,26 +266,37 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
         // 2. Direct upsert to 'students' table for aggregated stats
         if (updates && Array.isArray(updates)) {
-          // Clean updates and filter out records missing required NOT NULL fields (id, name)
+          // Clean updates and filter out records missing required NOT NULL fields (id, name, email)
           const validUpdates = updates
-            .filter((u: any) => u.id && u.name)
+            .filter((u: any) => u.id && u.name && u.email)
             .map((u: any) => ({
               id: u.id,
               name: u.name,
+              email: u.email,
+              batch: u.batch || 'All',
               daily_attendance: u.daily_attendance || u.dailyAttendance || {},
               attendance: u.attendance !== undefined ? u.attendance : 0,
               updated_at: new Date().toISOString()
             }));
+          
+          const invalidCount = updates.length - validUpdates.length;
+          if (invalidCount > 0) {
+            console.warn(`[API/Attendance] Warning: ${invalidCount} student records skipped due to missing ID, Name or Email`);
+          }
 
           if (validUpdates.length > 0) {
-            console.log(`[API/Attendance] Upserting ${validUpdates.length} valid student stats`);
+            console.log(`[API/Attendance] Upserting ${validUpdates.length} valid student stats to Supabase...`);
             const { error: studentError } = await supabase.from('students').upsert(validUpdates);
             if (studentError) {
-              console.error("[API/Attendance] Aggregated update error:", studentError);
-              return res.status(500).json({ success: false, error: studentError.message });
+              console.error("[API/Attendance] SUPABASE UPSERT ERROR:", studentError);
+              // Log the first failing record if possible for debugging
+              if (validUpdates.length > 0) {
+                console.log("[API/Attendance] Sample failing record:", JSON.stringify(validUpdates[0]));
+              }
+              return res.status(500).json({ success: false, error: `Student database sync failed: ${studentError.message}` });
             }
           } else {
-            console.warn("[API/Attendance] No valid student updates identified in payload");
+            console.warn("[API/Attendance] No valid student updates identified in payload after filtering");
           }
         }
 
