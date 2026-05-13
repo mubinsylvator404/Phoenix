@@ -1431,96 +1431,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {/* Sync Tools */}
               <div className="md:col-span-2 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button 
-                    onClick={async () => {
-                      setIsCheckingHealth(true);
-                      try {
-                        const res = await fetch('/api/sync?action=olympiad', { method: 'POST' });
-                        const data = await res.json();
-                        alert(data.message || "Olympiad schema synced successfully.");
-                      } catch (err: any) { alert("Sync Error: " + err.message); }
-                      finally { setIsCheckingHealth(false); fetchDbHealth(); }
-                    }}
-                    className="group h-32 bg-orange-600/10 hover:bg-orange-600/20 border border-orange-500/20 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all p-6 text-center"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-lg shadow-orange-500/20">
-                      <GraduationCap size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-widest text-orange-400">Fix Olympiad</p>
-                      <p className="text-[10px] text-orange-400/60 font-medium whitespace-nowrap">Resolves policy existing errors</p>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={async () => {
-                      setIsCheckingHealth(true);
-                      try {
-                        const res = await fetch('/api/sync', { method: 'POST' });
-                        const data = await res.json();
-                        alert(data.message || "Student schema synced successfully.");
-                      } catch (err: any) { alert("Sync Error: " + err.message); }
-                      finally { setIsCheckingHealth(false); fetchDbHealth(); }
-                    }}
-                    className="group h-32 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all p-6 text-center"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
-                      <School size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-widest text-blue-400">Fix Students</p>
-                      <p className="text-[10px] text-blue-400/60 font-medium whitespace-nowrap">Syncs student table columns</p>
-                    </div>
-                  </button>
-                </div>
-
-                <div className="p-6 bg-orange-500/5 rounded-3xl border border-orange-500/10 flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
-                    <Shield size={16} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-black uppercase tracking-widest text-orange-500 mb-1">Configuration Status</p>
-                    <p className="text-xs text-orange-400/70 leading-relaxed break-all">
-                      Project URL: <span className="font-mono text-white">{supabaseUrl}</span>
-                    </p>
-                    <p className="mt-2 text-[10px] text-orange-400/50 leading-relaxed italic">
-                      If your data is missing, ensure you have set VITE_SUPABASE_URL and VITE_SUPABASE_SERVICE_ROLE_KEY in your deployment environment variables.
-                    </p>
-                    
-                    <button 
-                      onClick={async () => {
-                        if (!confirm("This will attempt to run all database setup scripts to restore missing tables. Already existing tables will be skipped. Proceed?")) return;
-                        setIsCheckingHealth(true);
-                        try {
-                          const res = await fetch('/api/sync', { method: 'POST' });
-                          const contentType = res.headers.get("content-type");
-                          
-                          if (contentType && contentType.includes("application/json")) {
-                            const data = await res.json();
-                            if (data.success) {
-                              const summary = data.results.map((r: any) => `${r.file}: ${r.status}`).join('\n');
-                              alert("Master Sync Processed:\n\n" + summary);
-                            } else {
-                              alert("Sync Failed (JSON): " + (data.error || data.details || "Unknown error"));
-                            }
-                          } else {
-                            const text = await res.text();
-                            console.error("Non-JSON response:", text);
-                            alert(`Server Error: Received non-JSON response (Status ${res.status}). \n\nThis usually means the API route was not found or the server crashed. Check console for details.`);
-                          }
-                        } catch (err: any) { 
-                          console.error("Fetch implementation error:", err);
-                          alert("Sync Error: " + err.message); 
-                        }
-                        finally { setIsCheckingHealth(false); fetchDbHealth(); }
-                      }}
-                      className="mt-4 w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-600/20 flex items-center justify-center gap-2"
-                    >
-                      <Database size={14} />
-                      Master Database Restore
-                    </button>
+                  {/* Legacy Sync Buttons Removed */}
+                  <div className="hidden">
+                    <button className="hidden"></button>
                   </div>
                 </div>
+
+                {/* Configuration Status Section Removed to simplify architecture */}
               </div>
             </div>
           </div>

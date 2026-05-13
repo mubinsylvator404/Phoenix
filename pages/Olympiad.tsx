@@ -354,13 +354,13 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   };
 
   const HeroSection = () => (
-    <div className="relative min-h-[70vh] flex items-center justify-center overflow-hidden pt-20">
+    <div className="relative min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden pt-28 md:pt-32 pb-12 md:pb-20">
       {isAdmin && (
         <button 
           onClick={() => setShowConfigModal(true)}
-          className="absolute top-24 right-6 z-20 p-4 bg-orange-500 text-white rounded-2xl hover:bg-orange-600 shadow-xl flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
+          className="absolute top-24 md:top-32 right-6 z-20 p-3 md:p-4 bg-orange-500 text-white rounded-2xl hover:bg-orange-600 shadow-xl flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
         >
-          <Edit2 size={16} /> Edit Hero
+          <Edit2 size={14} /> <span className="hidden sm:inline">Edit Hero</span>
         </button>
       )}
       <div className="absolute inset-0 bg-[#0A0A0A]">
@@ -374,24 +374,24 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         )}
       </div>
       
-      <div className="relative z-10 max-w-7xl mx-auto px-6 text-center space-y-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 text-center space-y-6 md:space-y-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-6 px-6 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]"
+          className="inline-flex flex-wrap items-center justify-center gap-3 md:gap-6 px-4 md:px-6 py-2 md:py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl text-orange-500 text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em]"
         >
-          <div className="flex items-center gap-2">
-            <Award size={14} />
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <Award size={12} className="md:w-[14px]" />
             <span>Phoenix Excellence</span>
           </div>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-2 text-white/70">
-            <MapPin size={14} className="text-orange-500" />
+          <div className="hidden sm:block w-px h-3 md:h-4 bg-white/10" />
+          <div className="flex items-center gap-1.5 md:gap-2 text-white/70">
+            <MapPin size={12} className="text-orange-500 md:w-[14px]" />
             <span>{olympiadVenue}</span>
           </div>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-2 text-white/70">
-            <Calendar size={14} className="text-orange-500" />
+          <div className="hidden sm:block w-px h-3 md:h-4 bg-white/10" />
+          <div className="flex items-center gap-1.5 md:gap-2 text-white/70">
+            <Calendar size={12} className="text-orange-500 md:w-[14px]" />
             <span>{olympiadDate}</span>
           </div>
         </motion.div>
@@ -400,9 +400,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-5xl md:text-8xl font-black text-white tracking-tighter uppercase leading-none"
+          className="text-[2.75rem] sm:text-5xl md:text-8xl font-black text-white tracking-tighter uppercase leading-[0.95] md:leading-none"
         >
-          {olympiadTitle.split(' ').slice(0, -2).join(' ')} <br />
+          {olympiadTitle.split(' ').slice(0, -2).join(' ')} <br className="hidden md:block" />
           <span className="text-orange-500 drop-shadow-[0_0_30px_rgba(249,115,22,0.3)]">
             {olympiadTitle.split(' ').slice(-2).join(' ')}
           </span>
@@ -414,13 +414,13 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
           transition={{ delay: 0.2, duration: 0.8 }}
           className="relative max-w-3xl mx-auto group"
         >
-          <div className="absolute -inset-x-20 -inset-y-10 bg-orange-500/5 blur-[100px] rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
+          <div className="absolute -inset-x-10 md:-inset-x-20 -inset-y-5 md:-inset-y-10 bg-orange-500/5 blur-[80px] md:blur-[100px] rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
           
-          <div className="relative px-8 py-10 md:px-12 backdrop-blur-sm bg-white/[0.02] border border-white/5 rounded-[40px] overflow-hidden shadow-2xl shadow-orange-500/5">
-            <p className="relative z-10 text-base md:text-[1.3rem] text-slate-200/90 font-medium tracking-tight leading-relaxed md:leading-[1.8]">
+          <div className="relative px-6 py-6 md:px-12 md:py-10 backdrop-blur-sm bg-white/[0.02] border border-white/5 rounded-[24px] md:rounded-[40px] overflow-hidden shadow-2xl shadow-orange-500/5">
+            <p className="relative z-10 text-sm md:text-[1.3rem] text-slate-200/90 font-medium tracking-tight leading-relaxed md:leading-[1.8]">
               {olympiadDesc}
             </p>
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-[1px] bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 md:w-32 h-[1px] bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
           </div>
         </motion.div>
 
@@ -429,15 +429,15 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
              initial={{ opacity: 0, y: 20 }}
              animate={{ opacity: 1, y: 0 }}
              transition={{ delay: 0.3 }}
-             className="pt-4"
+             className="pt-2 md:pt-4"
            >
              <a 
                href={olympiadRegLink}
                target="_blank"
                rel="noopener noreferrer"
-               className="inline-flex items-center gap-3 px-10 py-5 bg-orange-500 text-white rounded-[20px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-2xl shadow-orange-500/20 active:scale-95"
+               className="inline-flex items-center gap-2 md:gap-3 px-8 py-4 md:px-10 md:py-5 bg-orange-500 text-white rounded-xl md:rounded-[20px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-2xl shadow-orange-500/20 active:scale-95 text-xs md:text-sm"
              >
-               Register Now <ArrowRight size={20} />
+               Register Now <ArrowRight size={18} className="md:w-[20px]" />
              </a>
            </motion.div>
         )}
@@ -446,17 +446,17 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
   );
 
   const EventsList = () => (
-    <section id="events-section" className="py-24 px-6 max-w-7xl mx-auto space-y-12">
-      <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-        <div className="space-y-4 w-full md:w-auto">
-          <div className="flex items-center gap-4">
-            <h2 className="text-4xl font-black text-white tracking-tight uppercase">Wisdom Events</h2>
+    <section id="events-section" className="py-16 md:py-24 px-6 max-w-7xl mx-auto space-y-8 md:space-y-12">
+      <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
+        <div className="space-y-3 w-full md:w-auto">
+          <div className="flex items-center gap-3 md:gap-4">
+            <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight uppercase">Wisdom Events</h2>
             {isAdmin && (
               <button 
                 onClick={() => { setAdminMode('event'); setEditingItem(null); setShowAdminModal(true); }}
-                className="p-3 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-all shadow-lg"
+                className="p-2 md:p-3 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-all shadow-lg"
               >
-                <Plus size={20} />
+                <Plus size={18} className="md:w-[20px]" />
               </button>
             )}
           </div>
@@ -471,46 +471,46 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
             placeholder="Search events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all placeholder:text-slate-600"
+            className="w-full bg-white/5 border border-white/10 rounded-xl md:rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-white font-bold text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all placeholder:text-slate-600"
           />
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         {filteredEvents.map((event, idx) => (
           <motion.div
             key={event.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="group relative bg-white/5 backdrop-blur-xl rounded-[40px] border border-white/10 overflow-hidden hover:border-orange-500/50 transition-all"
+            className="group relative bg-white/5 backdrop-blur-xl rounded-[32px] md:rounded-[40px] border border-white/10 overflow-hidden hover:border-orange-500/50 transition-all"
           >
-            <div className="aspect-video relative overflow-hidden">
+            <div className="aspect-[16/10] md:aspect-video relative overflow-hidden">
               <img 
                 src={getDirectImageUrl(event.banner_image) || 'https://images.unsplash.com/photo-1544391496-1ca7c97457cd?auto=format&fit=crop&q=80'} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                 alt={event.title} 
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-transparent" />
               <div className="absolute top-4 right-4 flex gap-2">
                 {isAdmin && (
                   <>
                     <button 
                       onClick={(e) => { e.stopPropagation(); setAdminMode('event'); setEditingItem(event); setShowAdminModal(true); }}
-                      className="p-2 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40 transition-all"
+                      className="p-1.5 md:p-2 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40 transition-all"
                     >
-                      <Edit2 size={14} />
+                      <Edit2 size={12} className="md:w-[14px]" />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                      className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-lg"
+                      className="p-1.5 md:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-lg"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={12} className="md:w-[14px]" />
                     </button>
                   </>
                 )}
-                <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                <span className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest ${
                   event.status === 'Running' ? 'bg-green-500 text-white shadow-[0_0_20px_rgba(34,197,94,0.4)]' :
                   event.status === 'Upcoming' ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.4)]' :
                   'bg-slate-700 text-slate-300'
@@ -520,44 +520,34 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
               </div>
             </div>
             
-            <div className="p-8 space-y-6">
+            <div className="p-6 md:p-8 space-y-4 md:space-y-6">
               <div className="space-y-2">
-                <h3 className="text-2xl font-black text-white leading-tight uppercase line-clamp-2">{event.title}</h3>
-                <p className="text-sm text-slate-500 line-clamp-2">{event.description}</p>
+                <h3 className="text-xl md:text-2xl font-black text-white leading-tight uppercase line-clamp-2">{event.title}</h3>
+                <p className="text-xs md:text-sm text-slate-500 line-clamp-2">{event.description}</p>
               </div>
               
-              <div className="flex items-center justify-between pt-4 border-t border-white/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-white/5">
                 <div className="flex items-center gap-2 text-slate-400">
                   <Calendar size={14} />
-                  <span className="text-xs font-bold">{new Date(event.date).toLocaleDateString()}</span>
+                  <span className="text-[10px] md:text-xs font-bold">{new Date(event.date).toLocaleDateString()}</span>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 justify-end">
                   {event.registration_url && (
                     <a 
                       href={event.registration_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-green-500/10 text-green-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500 hover:text-white transition-all whitespace-nowrap"
+                      className="px-3 md:px-4 py-1.5 md:py-2 bg-green-500/10 text-green-500 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest hover:bg-green-500 hover:text-white transition-all whitespace-nowrap"
                     >
                       Register
                     </a>
                   )}
-                  {event.external_link && (
-                    <a 
-                      href={event.external_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-blue-500/10 text-blue-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1 whitespace-nowrap"
-                    >
-                      Info <ExternalLink size={10} />
-                    </a>
-                  )}
                   <button 
                     onClick={() => { setSelectedEvent(event); setActiveTab('details'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="p-4 bg-orange-500 text-white rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                    className="p-3 md:p-4 bg-orange-500 text-white rounded-xl md:rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 active:scale-95 transition-transform"
                   >
-                    <ArrowRight size={18} />
+                    <ArrowRight size={16} className="md:w-[18px]" />
                   </button>
                 </div>
               </div>
@@ -585,43 +575,43 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         </div>
 
         {/* Event Hero */}
-        <div className="relative h-[400px] overflow-hidden">
+        <div className="relative h-[300px] md:h-[400px] overflow-hidden">
           <img 
             src={getDirectImageUrl(selectedEvent.banner_image)} 
-            className="w-full h-full object-cover opacity-30 scale-110 blur-[2px]" 
+            className="w-full h-full object-cover opacity-30 scale-110 blur-[1px] md:blur-[2px]" 
             alt="" 
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/60 to-[#0A0A0A]/40" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#0A0A0A_100%)] opacity-60" />
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-7xl px-6 text-center space-y-4">
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/70 md:via-[#0A0A0A]/60 to-[#0A0A0A]/40" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#0A0A0A_100%)] opacity-80 md:opacity-60" />
+          <div className="absolute bottom-8 md:bottom-12 left-1/2 -translate-x-1/2 w-full max-w-7xl px-6 text-center space-y-4">
             {isAdmin && (
-              <div className="flex justify-center gap-3 mb-6">
+              <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-4 md:mb-6">
                 <button 
                   onClick={() => { setAdminMode('event'); setEditingItem(selectedEvent); setShowAdminModal(true); }}
-                  className="px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-xl hover:bg-white/40 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/10"
+                  className="px-4 md:px-6 py-2 md:py-3 bg-white/10 backdrop-blur-md text-white rounded-lg md:rounded-xl hover:bg-white/20 transition-all flex items-center gap-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-white/10"
                 >
-                  <Edit2 size={14} /> Edit Event Header
+                  <Edit2 size={12} className="md:w-[14px]" /> Edit Header
                 </button>
                 <button 
                   onClick={() => handleDeleteEvent(selectedEvent.id)}
-                  className="px-6 py-3 bg-red-500/20 backdrop-blur-md text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-red-500/10"
+                  className="px-4 md:px-6 py-2 md:py-3 bg-red-500/20 backdrop-blur-md text-red-500 rounded-lg md:rounded-xl hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-red-500/10"
                 >
-                  <Trash2 size={14} /> Delete Event
+                  <Trash2 size={12} className="md:w-[14px]" /> Delete
                 </button>
               </div>
             )}
-            <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">{selectedEvent.title}</h1>
+            <h1 className="text-3xl md:text-6xl font-black text-white uppercase tracking-tighter leading-tight">{selectedEvent.title}</h1>
             {selectedEvent.subtitle && (
-              <p className="text-slate-300/90 max-w-4xl mx-auto text-base md:text-xl leading-relaxed font-normal tracking-wide">{selectedEvent.subtitle}</p>
+              <p className="text-slate-300/90 max-w-4xl mx-auto text-xs md:text-xl leading-relaxed font-normal tracking-wide line-clamp-2 md:line-clamp-none">{selectedEvent.subtitle}</p>
             )}
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+            <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 pt-2 md:pt-4">
               {selectedEvent.registration_url && (
                 <a 
                   href={selectedEvent.registration_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-8 py-4 bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                  className="px-6 md:px-8 py-3 md:py-4 bg-orange-500 text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
                 >
                   Register Now
                 </a>
@@ -631,9 +621,9 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                   href={selectedEvent.external_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                  className="px-6 md:px-8 py-3 md:py-4 bg-white/5 border border-white/10 text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
                 >
-                  Event Details <ExternalLink size={14} />
+                  Details <ExternalLink size={12} className="md:w-[14px]" />
                 </a>
               )}
             </div>
@@ -641,8 +631,8 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
         </div>
 
         {/* Tabs */}
-        <div className="sticky top-20 z-30 bg-[#0A0A0A]/80 backdrop-blur-3xl border-y border-white/5">
-          <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-8 md:gap-16 py-6">
+        <div className="sticky top-[70px] z-30 bg-[#0A0A0A]/90 backdrop-blur-3xl border-y border-white/5">
+          <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-4 sm:gap-8 md:gap-16 py-4 md:py-6 overflow-x-auto no-scrollbar">
             {[
               { id: 'details', label: 'Overview', icon: Target },
               { id: 'materials', label: 'Materials', icon: FileText },
@@ -652,14 +642,14 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-3 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all relative ${
+                className={`flex flex-col md:flex-row items-center gap-1.5 md:gap-3 text-[8px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] transition-all relative whitespace-nowrap min-w-[60px] md:min-w-0 ${
                   activeTab === tab.id ? 'text-orange-500' : 'text-slate-500 hover:text-white'
                 }`}
               >
-                <tab.icon size={16} />
-                <span className="hidden md:inline">{tab.label}</span>
+                <tab.icon size={16} className="md:w-[18px]" />
+                <span>{tab.label}</span>
                 {activeTab === tab.id && (
-                  <motion.div layoutId="tab-underline" className="absolute -bottom-[21px] left-0 w-full h-0.5 bg-orange-500" />
+                  <motion.div layoutId="tab-underline" className="absolute -bottom-[17px] md:-bottom-[25px] left-0 w-full h-0.5 bg-orange-500" />
                 )}
               </button>
             ))}
@@ -682,23 +672,23 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     {/* Background Blur Accent */}
                     <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-blue-500/20 rounded-[32px] blur-2xl opacity-50 group-hover:opacity-75 transition duration-1000" />
                     
-                    <div className="relative bg-white/[0.03] backdrop-blur-3xl rounded-[32px] border border-white/10 p-8 md:p-12 shadow-2xl overflow-hidden">
+                    <div className="relative bg-white/[0.03] backdrop-blur-3xl rounded-[32px] border border-white/10 p-6 md:p-12 shadow-2xl overflow-hidden">
                       {/* Decorative elements */}
                       <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 blur-[100px] -mr-32 -mt-32" />
                       
-                      <div className="relative space-y-8">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30 font-bold">
-                            <Target size={24} />
+                      <div className="relative space-y-6 md:space-y-8">
+                        <div className="flex items-center gap-3 md:gap-4">
+                          <div className="w-10 h-10 md:w-12 md:h-12 bg-orange-500 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30 font-bold">
+                            <Target size={20} className="md:w-[24px]" />
                           </div>
                           <div>
-                            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Event Overview</h3>
-                            <div className="h-1 w-12 bg-orange-500 rounded-full mt-1" />
+                            <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter">Event Overview</h3>
+                            <div className="h-1 w-10 md:w-12 bg-orange-500 rounded-full mt-1" />
                           </div>
                         </div>
                         
                         <div className="prose prose-invert max-w-none">
-                          <div className="text-lg md:text-xl text-slate-300 leading-[1.8] font-medium tracking-tight whitespace-pre-wrap break-words">
+                          <div className="text-sm md:text-xl text-slate-300 leading-relaxed md:leading-[1.8] font-medium tracking-tight whitespace-pre-wrap break-words">
                             {selectedEvent.description}
                           </div>
                         </div>
@@ -717,21 +707,21 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Quick Information</h4>
                     <Zap size={14} className="text-orange-500 animate-pulse" />
                   </div>
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:gap-4">
                     {[
                       { label: 'Group / Category', value: selectedEvent.target_group || 'All Groups', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
                       { label: 'Event Date', value: selectedEvent.date || 'To be announced', icon: Calendar, color: 'text-orange-400', bg: 'bg-orange-400/10' },
                       { label: 'Registration Deadline', value: selectedEvent.deadline || 'Limited Seats', icon: Clock, color: 'text-red-400', bg: 'bg-red-400/10' },
                       { label: 'Event Venue', value: selectedEvent.venue || olympiadVenue, icon: MapPin, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                     ].map((item, i) => (
-                      <div key={i} className="bg-white/[0.03] border border-white/10 p-6 rounded-[24px] hover:bg-white/[0.08] hover:border-white/20 transition-all group relative overflow-hidden">
+                      <div key={i} className="bg-white/[0.03] border border-white/10 p-5 md:p-6 rounded-[20px] md:rounded-[24px] hover:bg-white/[0.08] hover:border-white/20 transition-all group relative overflow-hidden">
                         <div className="flex items-center gap-4 relative z-10">
-                          <div className={`w-12 h-12 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500`}>
-                            <item.icon size={22} />
+                          <div className={`w-10 h-10 md:w-12 md:h-12 ${item.bg} ${item.color} rounded-xl md:rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500`}>
+                            <item.icon size={20} className="md:w-[22px]" />
                           </div>
                           <div>
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{item.label}</p>
-                            <p className="text-sm font-bold text-white uppercase tracking-tight leading-tight">{item.value}</p>
+                            <p className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 md:mb-1">{item.label}</p>
+                            <p className="text-xs md:text-sm font-bold text-white uppercase tracking-tight leading-tight">{item.value}</p>
                           </div>
                         </div>
                       </div>
@@ -778,26 +768,26 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: idx * 0.1 }}
-                      className="bg-white/5 backdrop-blur-xl rounded-[32px] border border-white/10 p-8 space-y-6 group hover:border-orange-500/30 transition-all relative"
+                      className="bg-white/5 backdrop-blur-xl rounded-[24px] md:rounded-[32px] border border-white/10 p-6 md:p-8 space-y-5 md:space-y-6 group hover:border-orange-500/30 transition-all relative"
                     >
                       {isAdmin && (
-                        <div className="absolute top-6 right-6 flex gap-2 z-10">
+                        <div className="absolute top-4 md:top-6 right-4 md:right-6 flex gap-2 z-10">
                           <button 
                             onClick={() => { setAdminMode('speaker'); setEditingItem(speaker); setShowAdminModal(true); }}
-                            className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
+                            className="p-2 md:p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={12} className="md:w-[14px]" />
                           </button>
                           <button 
                             onClick={() => handleDeleteSpeaker(speaker.id)}
-                            className="p-3 bg-red-500/20 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                            className="p-2 md:p-3 bg-red-500/20 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-lg"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={12} className="md:w-[14px]" />
                           </button>
                         </div>
                       )}
                       <div className="relative">
-                        <div className="aspect-square rounded-2xl overflow-hidden mb-6 bg-slate-800">
+                        <div className="aspect-square rounded-xl md:rounded-2xl overflow-hidden mb-4 md:mb-6 bg-slate-800">
                           <img 
                             src={getDirectImageUrl(speaker.image)} 
                             className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" 
@@ -805,23 +795,23 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                             referrerPolicy="no-referrer"
                           />
                         </div>
-                        <div className="absolute -bottom-4 right-4 w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-xl">
-                          <GraduationCap size={20} />
+                        <div className="absolute -bottom-2 md:-bottom-4 right-2 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-orange-500 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-xl">
+                          <GraduationCap size={18} className="md:w-[20px]" />
                         </div>
                       </div>
                       
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <h3 className="text-xl font-black text-white uppercase">{speaker.name}</h3>
-                          <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest">{speaker.university}</p>
-                          <p className="text-slate-500 text-xs font-bold italic">{speaker.department}</p>
+                      <div className="space-y-3 md:space-y-4">
+                        <div className="space-y-0.5 md:space-y-1">
+                          <h3 className="text-lg md:text-xl font-black text-white uppercase">{speaker.name}</h3>
+                          <p className="text-orange-500 text-[9px] md:text-[10px] font-black uppercase tracking-widest">{speaker.university}</p>
+                          <p className="text-slate-500 text-[10px] md:text-xs font-bold italic">{speaker.department}</p>
                         </div>
-                        <p className="text-sm text-slate-400 line-clamp-3 leading-relaxed">{speaker.bio}</p>
-                        <div className="pt-4 border-t border-white/5 space-y-2">
-                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Speaking On:</p>
-                          <div className="flex flex-wrap gap-2">
+                        <p className="text-xs md:text-sm text-slate-400 line-clamp-3 leading-relaxed">{speaker.bio}</p>
+                        <div className="pt-3 md:pt-4 border-t border-white/5 space-y-2">
+                          <p className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest">Speaking On:</p>
+                          <div className="flex flex-wrap gap-1.5 md:gap-2">
                             {speaker.topics?.map(topic => (
-                              <span key={topic} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] text-slate-300">
+                              <span key={topic} className="px-2 md:px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[8px] md:text-[10px] text-slate-300">
                                 {topic}
                               </span>
                             ))}
@@ -830,7 +820,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                                 href={speaker.external_link} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg text-[10px] text-orange-500 hover:bg-orange-500 hover:text-white transition-all flex items-center gap-1"
+                                className="px-2 md:px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg text-[8px] md:text-[10px] text-orange-500 hover:bg-orange-500 hover:text-white transition-all flex items-center gap-1"
                               >
                                 PROFILE <ExternalLink size={10} />
                               </a>
@@ -866,7 +856,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="group bg-white/5 backdrop-blur-xl p-6 rounded-[24px] border border-white/10 hover:border-blue-500/50 transition-all relative"
+                    className="group bg-white/5 backdrop-blur-xl p-5 md:p-6 rounded-[20px] md:rounded-[24px] border border-white/10 hover:border-blue-500/50 transition-all relative"
                   >
                     {isAdmin && (
                       <div className="absolute top-4 right-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -934,7 +924,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                       key={result.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="group bg-gradient-to-br from-green-500/10 to-transparent p-8 rounded-[32px] border border-green-500/20 flex items-center justify-between gap-6 relative overflow-hidden"
+                      className="group bg-gradient-to-br from-green-500/10 to-transparent p-6 md:p-8 rounded-[24px] md:rounded-[32px] border border-green-500/20 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden"
                     >
                       {isAdmin && (
                         <div className="absolute top-4 right-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1015,7 +1005,7 @@ const Olympiad: React.FC<OlympiadProps> = ({ role, currentUser, logoImage, navig
                         </button>
                       </div>
                     )}
-                    <div className="aspect-video bg-slate-800 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl relative">
+                    <div className="aspect-video bg-slate-800 rounded-[20px] md:rounded-[32px] overflow-hidden border border-white/5 shadow-2xl relative">
                       <iframe 
                         className="w-full h-full"
                         src={getYoutubeEmbedUrl(video.youtube_url)} 

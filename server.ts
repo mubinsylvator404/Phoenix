@@ -110,66 +110,7 @@ app.get(["/api/ping", "/ping"], (req, res) => {
 // diagnostics
 app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new Date().toISOString() }));
 
-// --- 1. CRITICAL SYNC & HEALTH ROUTES ---
-// Extracted sync logic for reuse
-async function runMasterSync(supabase: any) {
-  console.log("[SchemaSync] Master sync starting...");
-  const results: any[] = [];
-  const sqlFiles = ['supabase_schema.sql', 'syllabus_schema.sql', 'olympiad_db_schema.sql', 'omr_schema.sql', 'analytics_schema.sql'];
-
-  for (const fileName of sqlFiles) {
-    try {
-      const filePath = path.join(process.cwd(), fileName);
-      if (fs.existsSync(filePath)) {
-        const sql = fs.readFileSync(filePath, 'utf8');
-        const { data, error: sqlError } = await supabase.rpc('run_sql', { sql });
-        results.push({ 
-          file: fileName, 
-          status: sqlError ? 'error' : (data?.success === false ? 'failure' : 'success'), 
-          message: sqlError ? sqlError.message : (data?.error || 'OK'),
-          code: sqlError ? sqlError.code : null
-        });
-      } else {
-        results.push({ file: fileName, status: 'skipped', message: 'File not found' });
-      }
-    } catch (e: any) {
-      results.push({ file: fileName, status: 'exception', message: e.message });
-    }
-  }
-
-  // Final patches
-  try { 
-    await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ADD COLUMN IF NOT EXISTS daily_attendance JSONB DEFAULT '{}'; ALTER TABLE public.students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();" }); 
-    await supabase.rpc('run_sql', { sql: "ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;" });
-    await supabase.rpc('run_sql', { sql: "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all access students') THEN CREATE POLICY \"Public all access students\" ON public.students FOR ALL USING (true) WITH CHECK (true); END IF; END $$;" });
-    await supabase.rpc('run_sql', { sql: "NOTIFY pgrst, 'reload schema';" });
-  } catch (e: any) {
-    console.error("[SchemaSync] Patch error:", e.message);
-  }
-  
-  return results;
-}
-
-  // Master Sync route for all schemas
-  app.all(["/api/health/sync-all", "/api/sync"], async (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    try {
-      console.log(`[SchemaSync] Master sync requested via ${req.method} ${req.originalUrl}`);
-      const results = await runMasterSync(supabase);
-      const isRpcMissing = results.some(r => r.message && r.message.includes('does not exist'));
-
-      res.json({ 
-        success: true, 
-        results,
-        isRpcMissing,
-        tip: isRpcMissing ? "The 'run_sql' function is missing in Supabase. Please add it manually via SQL Editor." : undefined
-      });
-    } catch (err: any) {
-      console.error("[SchemaSync] Master Sync Crash:", err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
+  // --- 1. HEALTH CHECK ---
   app.get("/api/health/database", async (req, res) => {
     try {
       const { error: oError } = await supabase.from('olympiad_settings').select('id').limit(1);
@@ -258,7 +199,7 @@ async function runMasterSync(supabase: any) {
             return res.json({ 
               success: true, 
               data: retryData ? retryData[0] : null, 
-              warning: "Some fields (Venue, Date, image, etc.) were not saved because the database schema is old. Please sync database.",
+              warning: "Some advanced fields were not saved. Please verify database columns.",
               originalError: error.message 
             });
           }
@@ -291,136 +232,68 @@ async function runMasterSync(supabase: any) {
     }
   });
 
-  // --- 3. CONSOLIDATED ATTENDANCE API ---
-  app.use("/api/attendance", async (req, res) => {
-    const { method, query, body } = req;
+  // --- 3. DIRECT ATTENDANCE API ---
+  app.post("/api/attendance", async (req, res) => {
+    const { query, body } = req;
     const action = query.action;
     
-    // Debug log for troubleshooting - REQUIRED BY REQUEST
-    console.log(`[API/Attendance] Incoming ${method} request`);
-    console.log("Action:", action);
-    if (method === 'POST') {
-      console.log("Attendance body:", JSON.stringify(body, null, 2));
-    }
+    console.log(`[API/Attendance] Direct save request. Action: ${action}`);
 
     try {
-      if (method === 'GET') {
-        const { count, error } = await supabase.from('students').select('*', { head: true, count: 'exact' });
-        return res.json({ connected: !error, count: count || 0 });
-      }
-
-      if (method === 'POST') {
-        // 1. Handle NEW 'save' action for attendance logs - REQUIRED BY REQUEST
-        if (action === 'save') {
-          const { batch, subject, teacher, lecture_date, students, attendance_status } = body;
-          
-          if (!lecture_date) {
-            return res.status(400).json({ success: false, error: "lecture_date is required for 'save' action" });
-          }
-
-          const logPayload = {
-            batch: batch || 'All',
-            subject: subject || 'General',
-            teacher: teacher || 'Unknown',
-            lecture_date,
-            students: students || [],
-            attendance_status: attendance_status || {},
-            created_at: new Date().toISOString()
-          };
-
-          console.log(`[API/Attendance] Saving to 'attendance' table: ${lecture_date}`);
-          const { error: logError } = await supabase.from('attendance').insert(logPayload);
-
-          if (logError) {
-            console.error("[API/Attendance] Log Insert Error:", logError);
-            // We continue even if log fails, but we'll report it
-          }
-
-          // 2. Also update 'students' table to maintain aggregated stats
-          // We expect the frontend to send aggregated 'updates' if it wants stats sync
-          // OR we can derive it from attendance_status if 'updates' is missing
-          const updates = body.updates;
-          if (updates && Array.isArray(updates)) {
-            console.log(`[API/Attendance] Syncing ${updates.length} students to main table`);
-            
-            // Clean updates to ensure they match schema exactly
-            const cleanedUpdates = updates.map((u: any) => ({
-              id: u.id,
-              daily_attendance: u.daily_attendance || u.dailyAttendance || {},
-              attendance: u.attendance !== undefined ? u.attendance : 0,
-              updated_at: new Date().toISOString()
-            }));
-
-            const { error: studentError } = await supabase.from('students').upsert(cleanedUpdates);
-            if (studentError) {
-              console.error("[API/Attendance] Student sync error:", studentError);
-              // Report error if both failed
-              if (logError) return res.status(500).json({ success: false, error: studentError.message });
-            }
-          }
-
-          return res.json({ 
-            success: true, 
-            logSaved: !logError,
-            studentsSynced: true 
-          });
+      if (action === 'save') {
+        const { batch, subject, teacher, lecture_date, students, attendance_status, updates } = body;
+        
+        if (!lecture_date) {
+          return res.status(400).json({ success: false, error: "lecture_date is required" });
         }
 
-        // 2. Handle legacy bulk/single updates for students table
-        const updates = body.updates;
-        let finalMappedUpdates = [];
+        console.log(`[API/Attendance] Saving to Supabase: ${lecture_date} for ${batch}`);
 
+        // 1. Save log to 'attendance' table
+        const { error: logError } = await supabase.from('attendance').insert({
+          batch: batch || 'All',
+          subject: subject || 'General',
+          teacher: teacher || 'Unknown',
+          lecture_date,
+          students: students || [],
+          attendance_status: attendance_status || {},
+          created_at: new Date().toISOString()
+        });
+
+        if (logError) {
+          console.error("[API/Attendance] Log Save Error:", logError);
+        }
+
+        // 2. Direct upsert to 'students' table for aggregated stats
         if (updates && Array.isArray(updates)) {
-          console.log(`[API/Attendance] legacy bulk sync: ${updates.length} students`);
-          finalMappedUpdates = updates.map((u: any) => ({
+          const cleanedUpdates = updates.map((u: any) => ({
             id: u.id,
             daily_attendance: u.daily_attendance || u.dailyAttendance || {},
             attendance: u.attendance !== undefined ? u.attendance : 0,
             updated_at: new Date().toISOString()
           }));
-        } else if (body.id || body.studentId) {
-          // Single update fallback
-          const { studentId, dailyAttendance, daily_attendance, attendance, otherData } = body;
-          const id = studentId || body.id;
-          
-          const finalAttendance = daily_attendance || dailyAttendance || {};
-          finalMappedUpdates = [{ 
-            id, 
-            daily_attendance: finalAttendance,
-            attendance: attendance !== undefined ? attendance : 0,
-            ...otherData, 
-            updated_at: new Date().toISOString() 
-          }];
-          console.log(`[API/Attendance] legacy single update for: ${id}`);
+
+          const { error: studentError } = await supabase.from('students').upsert(cleanedUpdates);
+          if (studentError) {
+            console.error("[API/Attendance] Aggregated update error:", studentError);
+            return res.status(500).json({ success: false, error: studentError.message });
+          }
         }
 
-        if (finalMappedUpdates.length > 0) {
-          const { error } = await supabase.from('students').upsert(finalMappedUpdates);
-          
-          if (error) {
-            console.error("[API/Attendance] legacy upsert error:", error);
-            throw error;
-          }
-          return res.json({ success: true, count: finalMappedUpdates.length });
-        }
-        
-        return res.status(400).json({ error: "No valid action or update data provided" });
+        return res.json({ success: true, message: "Attendance saved successfully" });
       }
-      return res.status(405).json({ error: 'Method not allowed' });
+
+      return res.status(400).json({ success: false, error: "Invalid action" });
     } catch (err: any) {
-      console.error("[API/Attendance] Caught Exception:", err.message);
-      return res.status(500).json({ 
-        success: false, 
-        error: String(err.message || err), 
-        details: err.details || "Internal server crash" 
-      });
+      console.error("[API/Attendance] Server Error:", err);
+      return res.status(500).json({ success: false, error: String(err.message || err) });
     }
   });
 
-
-  app.all("/api/students/sync", (req, res) => res.redirect(307, '/api/attendance'));
-  app.all("/api/students/bulk-sync", (req, res) => res.redirect(307, '/api/attendance?action=bulk-sync'));
-  app.all("/api/sync/attendance", (req, res) => res.redirect(307, '/api/attendance?action=bulk-sync'));
+  app.get("/api/attendance", async (req, res) => {
+    const { data, error } = await supabase.from('students').select('*', { count: 'exact' });
+    return res.json({ connected: !error, count: data?.length || 0 });
+  });
 
   // --- 4. CONSOLIDATED SYLLABUS API ---
   app.all("/api/syllabus", async (req, res) => {

@@ -268,38 +268,36 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       });
 
       if (response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const result = await response.json();
-          if (result.success) {
-            // Update locally
-            setStudents(prev => prev.map(item => {
-              const update = updates.find(u => u.id === item.id);
-              if (update) {
-                return { 
-                  ...item, 
-                  dailyAttendance: update.daily_attendance, 
-                  attendance: update.attendance 
-                };
-              }
-              return item;
-            }));
-            alert("Attendance records saved successfully for " + attendanceDate);
-          } else {
-            alert(`Sync partial success. Failures: ${result.failures || result.error || 'Unknown error'}`);
-          }
+        const result = await response.json();
+        if (result.success) {
+          // Update locally
+          setStudents(prev => prev.map(item => {
+            const update = updates.find(u => u.id === item.id);
+            if (update) {
+              return { 
+                ...item, 
+                dailyAttendance: update.daily_attendance, 
+                attendance: update.attendance 
+              };
+            }
+            return item;
+          }));
+          alert("Attendance records saved successfully for " + attendanceDate);
         } else {
-          const text = await response.text();
-          console.error("Non-JSON sync response:", text);
-          alert("Received non-JSON response from server during sync. If this persists, please contact support.");
+          alert(`Failed to save attendance: ${result.error || 'Unknown error'}`);
         }
       } else {
         const text = await response.text();
-        console.error("Sync error status:", response.status, text);
-        alert(`Failed to sync attendance (Status ${response.status}). If this persists, please contact support.`);
+        console.error("Save error:", response.status, text);
+        try {
+          const errData = JSON.parse(text);
+          alert(`Failed to save attendance: ${errData.error || text}`);
+        } catch (e) {
+          alert(`Failed to save attendance (Status ${response.status})`);
+        }
       }
     } catch (err: any) {
-      console.error("Bulk sync error:", err);
+      console.error("Attendance save error:", err);
       alert("Error: " + err.message);
     }
   };
