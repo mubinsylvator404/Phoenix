@@ -314,20 +314,38 @@ const StudentDashboard: React.FC<Props> = ({ student, exams, onLogout, subjects,
     return matchesSubject && matchesSearch;
   });
 
-  // Filter exams based on batch
-  const studentExams = exams.filter(exam => 
-    !exam.batch || 
-    exam.batch === 'All' || 
-    exam.batch === student.batch
-  );
+  // Filter exams based on batch - Relaxed to always include exams where student has marks
+  const studentExams = exams.filter(exam => {
+    // If student has explicit marks in this exam, ALWAYS show it
+    const hasMarks = exam.marks && (
+      exam.marks[student.id] !== undefined || 
+      Object.keys(exam.marks).some(k => k.toLowerCase() === student.id.toLowerCase())
+    );
+    
+    if (hasMarks) return true;
 
-  const studentResults = studentExams.map(exam => ({
-    name: exam.name,
-    subject: exam.subject,
-    score: exam.marks ? exam.marks[student.id] : undefined,
-    totalMarks: exam.totalMarks || 100,
-    date: exam.date
-  })).filter(res => res.score !== undefined);
+    // Otherwise follow batch logic
+    return !exam.batch || 
+      exam.batch === 'All' || 
+      exam.batch === student.batch;
+  });
+
+  const studentResults = studentExams.map(exam => {
+    // Try exact match first, then case-insensitive
+    let score = exam.marks ? exam.marks[student.id] : undefined;
+    if (score === undefined && exam.marks) {
+      const key = Object.keys(exam.marks).find(k => k.toLowerCase() === student.id.toLowerCase());
+      if (key) score = exam.marks[key];
+    }
+
+    return {
+      name: exam.name,
+      subject: exam.subject,
+      score: score,
+      totalMarks: exam.totalMarks || 100,
+      date: exam.date
+    };
+  }).filter(res => res.score !== undefined);
 
   // Calculate dynamic average score
   const dynamicAverageScore = studentResults.length > 0
