@@ -146,6 +146,12 @@ export const syncData = async (table: string, data: any | any[], retries = 3, de
             delete (newItem as any).feeRecords;
             delete (newItem as any).courseFeeStatus;
             delete (newItem as any).monthlyFeeStatus;
+            
+            // Map assignmentSubmissions to snake_case for Supabase
+            if (newItem.assignmentSubmissions) {
+              newItem.assignment_submissions = newItem.assignmentSubmissions;
+              delete (newItem as any).assignmentSubmissions;
+            }
 
             if (newItem.sscRoll) { newItem.ssc_roll = newItem.sscRoll; delete (newItem as any).sscRoll; }
             if (newItem.sscReg) { newItem.ssc_reg = newItem.sscReg; delete (newItem as any).sscReg; }
@@ -463,6 +469,7 @@ export const fetchAllData = async () => {
           attendance: s.attendance || 0,
           joinDate: s.join_date || s.joinDate || s.created_at?.split('T')[0] || '',
           feeRecords: Array.isArray(s.fee_records) ? s.fee_records : (Array.isArray(s.payment_records) ? s.payment_records : (Array.isArray(s.feeRecords) ? s.feeRecords : [])),
+          assignmentSubmissions: s.assignment_submissions || s.assignmentSubmissions || [],
           batch: s.batch || '',
           subjects: Array.isArray(s.subjects) ? s.subjects : [],
           password: s.password || ''

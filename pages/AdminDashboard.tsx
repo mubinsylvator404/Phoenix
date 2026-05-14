@@ -132,7 +132,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [viewingAssignmentSubmissions, setViewingAssignmentSubmissions] = useState<Assignment | null>(null);
-  const [submissionMarks, setSubmissionMarks] = useState<Record<string, { marks: number; status: 'Submitted' | 'Pending' }>>({});
+  const [submissionMarks, setSubmissionMarks] = useState<Record<string, { marks: number | string; status: 'Submitted' | 'Pending' }>>({});
 
   const [leaderboardBatchFilter, setLeaderboardBatchFilter] = useState<string>('All');
   
@@ -1127,12 +1127,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const existingSubmissions = student.assignmentSubmissions || [];
       const otherSubmissions = existingSubmissions.filter(s => s.assignmentId !== assignmentId);
       
+      const marksValue = typeof sub.marks === 'string' ? (parseInt(sub.marks) || 0) : sub.marks;
+      
       const newSubmission: AssignmentSubmission = {
         id: crypto.randomUUID(),
         assignmentId,
         studentId: student.id,
         status: sub.status,
-        marks: sub.marks,
+        marks: marksValue,
         submittedAt: new Date().toISOString()
       };
 
@@ -5875,7 +5877,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 value={currentMarks}
                                 onChange={(e) => setSubmissionMarks(prev => ({
                                   ...prev,
-                                  [student.id]: { ...prev[student.id], marks: parseInt(e.target.value), status: currentStatus }
+                                  [student.id]: { ...prev[student.id], marks: e.target.value, status: currentStatus }
                                 }))}
                                 className="w-16 p-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-white text-center"
                               />

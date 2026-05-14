@@ -608,7 +608,17 @@ const StudentDashboard: React.FC<Props> = ({ student, exams, onLogout, subjects,
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2">{assignment.description}</p>
                     <div className="flex items-center justify-between text-xs font-bold text-slate-500">
                       <span className="px-2 py-1 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">{assignment.subject || 'General'}</span>
-                      <span>{assignment.totalMarks} Marks</span>
+                      <div className="flex flex-col items-end">
+                        <span className={student.assignmentSubmissions?.find(s => s.assignmentId === assignment.id)?.status === 'Submitted' ? 'text-green-500' : 'text-orange-500'}>
+                          {student.assignmentSubmissions?.find(s => s.assignmentId === assignment.id)?.status || 'Pending'}
+                        </span>
+                        {student.assignmentSubmissions?.find(s => s.assignmentId === assignment.id)?.marks !== undefined && (
+                          <span className="text-blue-500">Marks: {student.assignmentSubmissions?.find(s => s.assignmentId === assignment.id)?.marks} / {assignment.totalMarks}</span>
+                        )}
+                        {student.assignmentSubmissions?.find(s => s.assignmentId === assignment.id)?.marks === undefined && (
+                          <span>{assignment.totalMarks} Marks</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
