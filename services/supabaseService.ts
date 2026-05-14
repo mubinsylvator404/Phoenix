@@ -496,6 +496,7 @@ export const fetchAllData = async () => {
       exams: (examsRes.data || []).map((e: any) => ({
         ...e,
         totalMarks: e.total_marks || e.totalMarks || 100,
+        marks: e.marks || {},
         batch: e.batch || 'All'
       })),
       videoClasses: (videoClassesRes.data || []).map((v: any) => {

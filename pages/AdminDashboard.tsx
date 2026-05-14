@@ -814,11 +814,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!enteringMarksFor) return;
     
     const updatedMarks = { ...enteringMarksFor.marks };
+    const maxMarks = enteringMarksFor.totalMarks || 100;
+    let hasError = false;
+
     Object.entries(localMarks).forEach(([studentId, markStr]) => {
       if (markStr === '') {
         delete updatedMarks[studentId];
       } else {
-        updatedMarks[studentId] = Number(markStr);
+        const mark = Number(markStr);
+        if (isNaN(mark)) {
+          console.warn(`Invalid mark for student ${studentId}: ${markStr}`);
+          return;
+        }
+        
+        if (mark < 0 || mark > maxMarks) {
+          const student = students.find(s => s.id === studentId);
+          alert(`Warning: Mark for ${student?.name || studentId} (${mark}) is outside range 0-${maxMarks}. It will be saved anyway.`);
+        }
+        updatedMarks[studentId] = mark;
       }
     });
 
@@ -827,9 +840,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ? { ...exam, marks: updatedMarks } 
         : exam
     ));
+    
     setEnteringMarksFor(null);
     setLocalMarks({});
-    alert("Exam marks updated and synced successfully.");
+    alert("Exam marks saved successfully. Cloud sync will start automatically.");
   };
 
   const handleSaveSiteConfig = async () => {

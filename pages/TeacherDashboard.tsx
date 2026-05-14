@@ -329,11 +329,23 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     if (!enteringMarksFor) return;
     
     const updatedMarks = { ...enteringMarksFor.marks };
+    const maxMarks = enteringMarksFor.totalMarks || 100;
+
     Object.entries(localMarks).forEach(([studentId, markStr]) => {
       if (markStr === '') {
         delete updatedMarks[studentId];
       } else {
-        updatedMarks[studentId] = Number(markStr);
+        const mark = Number(markStr);
+        if (isNaN(mark)) {
+          console.warn(`Invalid mark for student ${studentId}: ${markStr}`);
+          return;
+        }
+
+        if (mark < 0 || mark > maxMarks) {
+          const student = students.find(s => s.id === studentId);
+          alert(`Warning: Mark for ${student?.name || studentId} (${mark}) is outside range 0-${maxMarks}. It will be saved anyway.`);
+        }
+        updatedMarks[studentId] = mark;
       }
     });
 
@@ -344,7 +356,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     ));
     setEnteringMarksFor(null);
     setLocalMarks({});
-    alert("Exam marks updated successfully.");
+    alert("Exam marks saved successfully. Cloud sync will start automatically.");
   };
 
   const handleProfileSubmit = (e: React.FormEvent) => {

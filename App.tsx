@@ -569,11 +569,10 @@ const App: React.FC = () => {
       // Improved hash: include counts AND verification status summary to detect approval changes
       const verifiedCount = students.filter(s => s.isVerified).length;
       const currentData = JSON.stringify({
-        students: students.length,
-        verifiedCount,
+        students: JSON.stringify(students.map(s => ({ id: s.id, v: s.isVerified, a: s.attendance, s: s.averageScore }))), // Slim but representative
         teachers: teachers.length, 
         subjects: subjects.length,
-        exams: exams.length,
+        exams: JSON.stringify(exams),
         videoClasses: videoClasses.length,
         chatbotKnowledge: chatbotKnowledge.length,
         assignments: assignments.length,
@@ -621,7 +620,7 @@ const App: React.FC = () => {
         }
       };
 
-      const timer = setTimeout(sync, 2000); // 2 second debounce
+      const timer = setTimeout(sync, 500); // 500ms debounce
       return () => clearTimeout(timer);
     }
   }, [students, teachers, subjects, exams, videoClasses, chatbotKnowledge, assignments, reviews, notices, syllabusProgress, logo, adminProfile, footerData, homeData, isLoading]);
