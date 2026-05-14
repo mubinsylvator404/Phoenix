@@ -676,7 +676,7 @@ app.all("/api/omr", async (req, res) => {
   }
 
   // 2. Static files for production
-  if (isEffectiveProd && fs.existsSync(distPath)) {
+  if (isEffectiveProd && fs.existsSync(distPath) && !process.env.VERCEL) {
     console.log(`[Server] Serving static files from: ${distPath}`);
     app.use(express.static(distPath, {
       index: 'index.html', // Let express handle the index normally
@@ -693,36 +693,38 @@ app.all("/api/omr", async (req, res) => {
   }
 
   // 3. Fallback for SPAs
-  // We use middleware without a path string to avoid Express 5 path-to-regexp issues with wildcards
-  app.use((req, res, next) => {
-    // Only handle GET requests that don't start with /api/
-    // Modified to be more inclusive of paths like /olympiad
-    if (req.method !== 'GET' || req.path.startsWith('/api/')) {
-      return next();
-    }
+  // Skip this on Vercel as vercel.json rewrites handle it natively
+  if (!process.env.VERCEL) {
+    app.use((req, res, next) => {
+      // Only handle GET requests that don't start with /api/
+      // Modified to be more inclusive of paths like /olympiad
+      if (req.method !== 'GET' || req.path.startsWith('/api/')) {
+        return next();
+      }
 
-    // Skip if it looks like a file request (has a dot in the suffix but isn't .html)
-    // We check the last segment to distinguish between /foo.bar (file) and /foo/bar (nested path)
-    const lastSegment = req.path.split('/').pop() || '';
-    if (lastSegment.includes('.') && !lastSegment.endsWith('.html')) {
-      return next();
-    }
+      // Skip if it looks like a file request (has a dot in the suffix but isn't .html)
+      // We check the last segment to distinguish between /foo.bar (file) and /foo/bar (nested path)
+      const lastSegment = req.path.split('/').pop() || '';
+      if (lastSegment.includes('.') && !lastSegment.endsWith('.html')) {
+        return next();
+      }
 
-    console.log(`[Server] SPA Fallback for path: ${req.path}`);
+      console.log(`[Server] SPA Fallback for path: ${req.path}`);
 
-    // Try sending index.html from dist first, then from root
-    // In Vercel, dist might be the build output but sometimes we need to serve root index.html
-    if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
-    }
+      // Try sending index.html from dist first, then from root
+      // In Vercel, dist might be the build output but sometimes we need to serve root index.html
+      if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+      }
 
-    const rootIndex = path.join(process.cwd(), 'index.html');
-    if (fs.existsSync(rootIndex)) {
-      return res.sendFile(rootIndex);
-    }
+      const rootIndex = path.join(process.cwd(), 'index.html');
+      if (fs.existsSync(rootIndex)) {
+        return res.sendFile(rootIndex);
+      }
 
-    next();
-  });
+      next();
+    });
+  }
 
   // FINAL CATCH-ALL for any missed API requests or non-GET requests
   // This prevents HTML responses for failed POST/PUT/DELETE calls
