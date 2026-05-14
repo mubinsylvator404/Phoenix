@@ -8,11 +8,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/olympiad",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

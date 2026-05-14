@@ -712,10 +712,14 @@ app.all("/api/omr", async (req, res) => {
   }
 
   // 3. Fallback for SPAs
-  // Support for all paths including nested ones
-  app.get(/^(?!\/api).*/, (req, res, next) => {
-    // Skip if it looks like a file request (has a dot in the last segment and it's not .html)
-    // This allows static assets that were missed by express.static to 404 rather than return index.html
+  // We use middleware without a path string to avoid Express 5 path-to-regexp issues with wildcards
+  app.use((req, res, next) => {
+    // Only handle GET requests that don't start with /api/
+    if (req.method !== 'GET' || req.path.startsWith('/api/')) {
+      return next();
+    }
+
+    // Skip if it looks like a file request (has a dot in the suffix but isn't .html)
     const lastSegment = req.path.split('/').pop() || '';
     if (lastSegment.includes('.') && !lastSegment.endsWith('.html')) {
       return next();
@@ -723,35 +727,17 @@ app.all("/api/omr", async (req, res) => {
 
     console.log(`[Server] SPA Fallback for path: ${req.path}`);
 
-    // In production, serve index.html from dist
-    if (isEffectiveProd && fs.existsSync(indexPath)) {
-      console.log(`[Server] Sending production index: ${indexPath}`);
+    // Try sending index.html from dist first, then from root
+    if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
     }
 
-    // Default to the source index if available
     const rootIndex = path.join(process.cwd(), 'index.html');
     if (fs.existsSync(rootIndex)) {
-      console.log(`[Server] Sending root index: ${rootIndex}`);
       return res.sendFile(rootIndex);
     }
 
-    // Otherwise, serve a basic fallback HTML
-    console.log(`[Server] Sending generated fallback HTML`);
-    res.status(200).set({ 'Content-Type': 'text/html' }).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Phoenix Edu Care</title>
-        </head>
-        <body>
-          <div id="root"></div>
-          <script type="module" src="${isEffectiveProd ? '/index.js' : '/index.tsx'}"></script>
-        </body>
-      </html>
-    `);
+    next();
   });
 
   // FINAL CATCH-ALL for any missed API requests or non-GET requests
@@ -762,7 +748,7 @@ app.all("/api/omr", async (req, res) => {
     res.status(404).json({ error: "API Route Not Found", path: req.path });
   });
 
-  // If we reach here and headers haven't been sent, it's a 404
+  // Final catch-all for any other unhandled routes (everything else is a 404)
   app.use((req, res) => {
     if (res.headersSent) return;
     console.log(`[Server] 404 Catch-all (Final): ${req.method} ${req.url}`);
