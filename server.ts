@@ -712,27 +712,32 @@ app.all("/api/omr", async (req, res) => {
   }
 
   // 3. Fallback for SPAs
-  app.get("*all", (req, res, next) => {
-    // Skip if it's an API request
-    if (req.path.startsWith('/api/')) return next();
-    
-    // Skip if it's a file request (has a dot and is not .html)
-    if (req.path.includes('.') && !req.path.endsWith('.html')) {
+  // Support for all paths including nested ones
+  app.get(/^(?!\/api).*/, (req, res, next) => {
+    // Skip if it looks like a file request (has a dot in the last segment and it's not .html)
+    // This allows static assets that were missed by express.static to 404 rather than return index.html
+    const lastSegment = req.path.split('/').pop() || '';
+    if (lastSegment.includes('.') && !lastSegment.endsWith('.html')) {
       return next();
     }
 
+    console.log(`[Server] SPA Fallback for path: ${req.path}`);
+
     // In production, serve index.html from dist
     if (isEffectiveProd && fs.existsSync(indexPath)) {
+      console.log(`[Server] Sending production index: ${indexPath}`);
       return res.sendFile(indexPath);
     }
 
-    // Default to the source index if available or a minimal fallback
+    // Default to the source index if available
     const rootIndex = path.join(process.cwd(), 'index.html');
     if (fs.existsSync(rootIndex)) {
+      console.log(`[Server] Sending root index: ${rootIndex}`);
       return res.sendFile(rootIndex);
     }
 
-    // Otherwise, serve a basic HTML that loads the React entry point
+    // Otherwise, serve a basic fallback HTML
+    console.log(`[Server] Sending generated fallback HTML`);
     res.status(200).set({ 'Content-Type': 'text/html' }).send(`
       <!DOCTYPE html>
       <html lang="en">
@@ -751,14 +756,21 @@ app.all("/api/omr", async (req, res) => {
 
   // FINAL CATCH-ALL for any missed API requests or non-GET requests
   // This prevents HTML responses for failed POST/PUT/DELETE calls
-  app.all(/^\/api\/.*$/, (req, res) => {
+  app.all(/^\/api\/.*/, (req, res) => {
     if (res.headersSent) return;
+    console.log(`[Server] 404 Catch-all (API): ${req.method} ${req.url}`);
     res.status(404).json({ error: "API Route Not Found", path: req.path });
   });
 
-  app.all(/^(?!\/api\/).*$/, (req, res) => {
+  // If we reach here and headers haven't been sent, it's a 404
+  app.use((req, res) => {
     if (res.headersSent) return;
-    res.status(404).send("Not Found");
+    console.log(`[Server] 404 Catch-all (Final): ${req.method} ${req.url}`);
+    if (req.path.startsWith('/api/')) {
+        res.status(404).json({ error: "Not Found", path: req.path });
+    } else {
+        res.status(404).send("Not Found");
+    }
   });
   // Global Error Handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
