@@ -67,25 +67,6 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Path normalization middleware for Vercel
-// Vercel sometimes strips the /api prefix when routing to api/index.ts
-app.use((req, res, next) => {
-  if (req.url.startsWith('/api/')) return next();
-  
-  const apiPaths = ['/olympiad', '/health', '/students', '/syllabus', '/analytics', '/location', '/omr', '/teachers', '/video-classes', '/attendance'];
-  // Only normalize to /api/ if it's likely an API call (not a browser navigation to a page)
-  const isPageNavigation = req.headers.accept?.includes('text/html');
-  
-  if (apiPaths.some(p => req.url.startsWith(p)) && !isPageNavigation) {
-    const oldUrl = req.url;
-    req.url = '/api' + req.url;
-    console.log(`[Server] Normalized path: ${oldUrl} -> ${req.url}`);
-    // Clear cached parsed URL to force Express to re-evaluate req.path
-    (req as any)._parsedUrl = undefined;
-  }
-  next();
-});
-
 // Debug middleware to see what's actually hitting the server
 app.use((req, res, next) => {
   if (req.url.startsWith('/api')) {
@@ -715,11 +696,13 @@ app.all("/api/omr", async (req, res) => {
   // We use middleware without a path string to avoid Express 5 path-to-regexp issues with wildcards
   app.use((req, res, next) => {
     // Only handle GET requests that don't start with /api/
+    // Modified to be more inclusive of paths like /olympiad
     if (req.method !== 'GET' || req.path.startsWith('/api/')) {
       return next();
     }
 
     // Skip if it looks like a file request (has a dot in the suffix but isn't .html)
+    // We check the last segment to distinguish between /foo.bar (file) and /foo/bar (nested path)
     const lastSegment = req.path.split('/').pop() || '';
     if (lastSegment.includes('.') && !lastSegment.endsWith('.html')) {
       return next();
@@ -728,6 +711,7 @@ app.all("/api/omr", async (req, res) => {
     console.log(`[Server] SPA Fallback for path: ${req.path}`);
 
     // Try sending index.html from dist first, then from root
+    // In Vercel, dist might be the build output but sometimes we need to serve root index.html
     if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
     }
