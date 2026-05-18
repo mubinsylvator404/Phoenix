@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import cors from "cors";
+import { GoogleGenAI } from "@google/genai";
 
 console.log("Server initializing...");
 
@@ -103,6 +104,88 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- CHATBOT API (Secure Gemini Proxy) ---
+  app.post("/api/chatbot", async (req, res) => {
+    try {
+      const { query, imageBase64, systemPrompt } = req.body;
+      const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+      if (!geminiKey) {
+        console.error("[Chatbot API] No GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY found in process.env");
+        return res.status(500).json({ error: "Gemini API key is not configured on the server. Please set GEMINI_API_KEY in the settings." });
+      }
+
+      const ai = new GoogleGenAI({ 
+        apiKey: geminiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+      
+      let requestContents: any;
+      if (imageBase64) {
+        const [mime, data] = imageBase64.split(',');
+        requestContents = {
+          parts: [
+            { text: query || "Analyze this image." },
+            {
+              inlineData: {
+                mimeType: mime.split(':')[1].split(';')[0],
+                data: data
+              }
+            }
+          ]
+        };
+      } else {
+        requestContents = query;
+      }
+
+      let result;
+      // Primary model (gemini-3-flash-preview is the recommended default for basic text/Q&A)
+      try {
+        result = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: requestContents,
+          config: {
+            systemInstruction: systemPrompt
+          }
+        });
+      } catch (innerError: any) {
+        console.warn("[Chatbot API] Primary model (gemini-3-flash-preview) failed, trying fallback:", innerError.message);
+        // Fallback model (using common alias)
+        try {
+          result = await ai.models.generateContent({
+            model: "gemini-flash-latest",
+            contents: requestContents,
+            config: {
+              systemInstruction: systemPrompt
+            }
+          });
+        } catch (fallbackError: any) {
+          console.error("[Chatbot API] Fallback model (gemini-flash-latest) also failed:", fallbackError.message);
+          throw fallbackError;
+        }
+      }
+
+      let text = result.text || "I am here to help with your studies. Could you please rephrase your question?";
+      // Bolding is now supported on the frontend
+      // text = text.replace(/\*\*/g, ''); 
+
+      return res.json({ success: true, text });
+    } catch (error: any) {
+      console.error("[Chatbot API Error]:", error);
+      const errorMessage = error.message || String(error);
+      
+      if (errorMessage.includes("429") || errorMessage.includes("Quota")) {
+        return res.status(429).json({ error: "Daily limit reached. Please try again tomorrow." });
+      }
+      
+      return res.status(500).json({ error: errorMessage });
     }
   });
 

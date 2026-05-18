@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Bot, User, Sparkles, GraduationCap, Image as ImageIcon, Paperclip, Trash2 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { motion, AnimatePresence } from 'motion/react';
 import { ChatbotKnowledge, Teacher, Subject } from '../types';
 
 interface ChatbotProps {
@@ -19,6 +21,44 @@ interface Message {
   timestamp: Date;
   image?: string;
 }
+
+const suggestedQuestions = [
+  "Phoenix Science Wisdom 5.0 কী?",
+  "Registration link দাও",
+  "Event কোথায় হবে?",
+  "Exam syllabus কী?",
+  "Mark distribution বলো",
+  "Group Alpha syllabus",
+  "Group Delta syllabus",
+  "Engineering admission session কে নিবে?",
+  "AI in Education speaker কে?",
+  "Medical admission guideline থাকবে?",
+  "Event timeline দেখাও",
+  "Facebook event link দাও",
+  "Phoenix Edu Care এ কী কী course আছে?",
+  "Admission process কী?",
+  "Admission fee কত?",
+  "Monthly fee কত?",
+  "HSC Science batch আছে?",
+  "SSC batch আছে?",
+  "Class কোথায় হয়?",
+  "Phoenix Edu Care কোথায় অবস্থিত?",
+  "Contact number দাও",
+  "Best Physics teacher কে?",
+  "Math teacher কারা?",
+  "ICT teacher কে?",
+  "Biology teacher কে?",
+  "English classes আছে?",
+  "Model Test হয়?",
+  "Online class support আছে?",
+  "Class routine কিভাবে পাবো?",
+  "Phoenix Edu Care কবে প্রতিষ্ঠিত?",
+  "BUET/CUET teacher আছে?",
+  "Medical admission guideline কে দিবে?",
+  "Engineering admission session কে নিবে?",
+  "AI in Education session কে নিবে?",
+  "Olympiad এ কারা participate করতে পারবে?"
+];
 
 const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers, subjects }) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -95,6 +135,40 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
     }
   };
 
+  const handleQuickSend = async (q: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: q,
+      sender: 'user',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsTyping(true);
+
+    try {
+      const response = await getBotResponse(q, null);
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response,
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Chatbot error:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "I'm sorry, I encountered an error. Please try again later.",
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   const getBotResponse = async (query: string, imageBase64: string | null): Promise<string> => {
     const lowerQuery = query.toLowerCase();
 
@@ -138,16 +212,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
       }
     }
 
-    // 3. Use AI for general questions
+    // 3. Use AI for general questions via Server-side Proxy
     try {
-      // Extremely robust key detection
-      let geminiKey = process.env.GEMINI_API_KEY;
-      
-      if (!geminiKey || geminiKey === 'undefined' || geminiKey === '') {
-        console.error("Phoenix AI: No API keys found in any environment source.");
-        return "Error: API Key is missing. Please check your environment variables." + referral;
-      }
-
       const teacherDetails = teachers.map(t => `- ${t.name}: Subject: ${t.subject}, Qualification: ${t.qualification}, Experience: ${t.experience}, Education: ${t.education}`).join('\n');
 
       const systemPrompt = `You are "Phoenix AI", the official assistant for "Phoenix Edu Care", an educational institution for HSC Science students in Kulaura, Bangladesh. 
@@ -159,8 +225,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
       
       STRICT GUIDELINES:
       - LANGUAGE: Always respond in the SAME LANGUAGE the user uses. If they ask in Bengali, reply in Bengali. If English, reply in English.
-      - FORMATTING: Provide well-structured, clean, and organized answers (Gemini/ChatGPT style). Use bullet points or numbered lists for clarity.
-      - NO BOLDING: DO NOT use markdown bolding (like **text**). Use plain text only.
+      - FORMATTING: Provide well-structured, clean, and organized answers (Gemini/ChatGPT style). Use bullet points, bold text for emphasis, or numbered lists for clarity.
       - CONCISENESS: Be specific and direct. Avoid unnecessary fluff.
       - ESTABLISHMENT YEAR: Phoenix Edu Care was established in 2021. NEVER say 2015.
       - GENDER CONTEXT: Kafi Al Fateha and Shafi Al Muntaha are FEMALE teachers (use "she/her").
@@ -178,59 +243,61 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
       - Established: 2021.
       - Features: Expert faculty from top universities (BUET, CUET, SUST, DU, SAU, JUST, DIU), modern digital classrooms, performance tracking, and personalized care.
       - Contact Number: 01779905067, 01787543379 (Students can also visit the office for admission details).
+      - Official Website: phoenixeducare.site
       
-      COURSES AND FEES:
-      - ICT: 3500 BDT
-      - English & ICT: 3500 BDT
-      - Other subjects (Physics, Chemistry, Biology, Higher Math, English): 2000 BDT to 4500 BDT depending on the course.`;
+      PHOENIX SCIENCE WISDOM 5.0 OLYMPIAD:
+      - Name: Phoenix Science Wisdom Season 5.
+      - Official Registration Link: https://docs.google.com/forms/d/e/1FAIpQLSfBtW2sCWocTl3tNA3VYzuq5PyYVWJRf-4ITJGhg3kVpWbeAw/viewform
+      - Official Facebook Event Link: https://www.facebook.com/events/1326004366054114/?rdid=WgveegdAKcjdnkHF&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F18todqkTfV%2F
+      - Participation Process: Users can register via the Google Form link above.
+      - Registration/Event Queries: When users ask "how to register", "registration link", "event link", "Facebook event", "participation process", or "where to join", ALWAYS provide the registration form link and Facebook event link naturally.
+      - Type: Science Based Olympiad.
+      - Groups: 
+        * Group Alpha: Class 9-10
+        * Group Gamma: SSC 2026
+        * Group Delta: HSC 2027
+        * Group Based Competition: Class 9-10 & SSC 2026
+      - Subjects: Physics, Chemistry, Biology.
+      - Mark Distribution: Each subject has MCQ (10 marks) and Written (10 marks). Total: 60 Marks, 60 Minutes.
+      - Syllabus:
+        * Alpha: Physics (Ch 1,2,3,4), Chemistry (Ch 1,2,3,4), Biology (Ch 1,2,3,4).
+        * Gamma: Physics (Ch 1,2,3,4), Chemistry (Ch 3,4,5,6,7), Biology (Ch 1,2,3,4).
+        * Delta: Physics (Ch 1,4,6,8), Chemistry (Ch 1,3,4), Biology (Ch 1,2,4,8).
+        * Group Based: Context Based Scientific Questions, Mathematics (Ch 9,10).
+      - Venue: Zela Parishad Auditorium, Kulaura.
+      - Date: 4 June 2026 (Thursday).
+      - Contact: 01779-905067, 01787-543379.
+      - Speakers & Experts:
+        * University Admission: Hafijur Rahman Najim (Dept. of Chemistry, JUST).
+        * Medical Admission: Musa Ahmed Emon (MBBS 4th Year, Manikganj Medical College).
+        * Engineering Admission: Abdur Rahman Ruman (EEE, CUET) & Nayeem Sabur Saadi (EEE, BUET).
+        * AI in Education: Abdullah Al Mubin (Software Engineering, DIU).
+        * College Admission: K.M Ahab Zaman Aqib (SAU).
+      - Timeline:
+        * Reporting: 9:00 AM – 10:00 AM
+        * Exam: 10:30 AM – 11:30 AM
+        * Group Exam: 11:40 AM – 12:10 PM
+        * Break: 12:10 PM – 12:30 PM
+        * Guideline & QNA: 12:30 PM – 2:30 PM
+        * Result Publish & Prize Giving: 2:30 PM – 4:00 PM`;
 
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      
-      let requestContents: any;
-      if (imageBase64) {
-        const [mime, data] = imageBase64.split(',');
-        requestContents = {
-          parts: [
-            { text: query || "Analyze this image." },
-            {
-              inlineData: {
-                mimeType: mime.split(':')[1].split(';')[0],
-                data: data
-              }
-            }
-          ]
-        };
-      } else {
-        requestContents = query;
+      const aiResponse = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          imageBase64,
+          systemPrompt
+        })
+      });
+
+      if (!aiResponse.ok) {
+        const errorData = await aiResponse.json();
+        throw new Error(errorData.error || 'Failed to get response from AI');
       }
 
-      let result;
-      try {
-        result = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: requestContents,
-          config: {
-            systemInstruction: systemPrompt
-          }
-        });
-      } catch (innerError: any) {
-        console.warn("Primary model failed, trying fallback:", innerError);
-        try {
-          result = await ai.models.generateContent({
-            model: "gemini-3.1-flash-lite-preview",
-            contents: requestContents,
-            config: {
-              systemInstruction: systemPrompt
-            }
-          });
-        } catch (fallbackError) {
-          throw fallbackError;
-        }
-      }
-
-      let text = result.text || "I am here to help with your studies. Could you please rephrase your question?";
-      text = text.replace(/\*\*/g, '');
-      return text + referral;
+      const data = await aiResponse.json();
+      return data.text + referral;
 
     } catch (error) {
       console.error("Phoenix AI error details:", error);
@@ -271,7 +338,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
       <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-900/50">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+            <div className={`max-w-[80%] p-3 rounded-2xl text-sm break-words overflow-hidden ${
               msg.sender === 'user' 
                 ? 'bg-blue-600 text-white rounded-tr-none' 
                 : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-sm border border-slate-100 dark:border-slate-700 rounded-tl-none'
@@ -283,7 +350,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
               {msg.image && (
                 <img src={msg.image} alt="Uploaded" className="w-full h-auto rounded-lg mb-2 border border-white/20" />
               )}
-              <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+              <div className="markdown-body">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {msg.text}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
         ))}
@@ -303,6 +374,24 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
 
       {/* Input */}
       <div className="p-4 bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        {/* Suggested Questions Chips */}
+        {!selectedImage && messages.length < 10 && (
+          <div className="mb-4 flex flex-nowrap overflow-x-auto gap-2 pb-2 no-scrollbar scrollbar-none -mx-1">
+            {suggestedQuestions.map((q, i) => (
+              <motion.button
+                key={i}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                onClick={() => handleQuickSend(q)}
+                className="flex-shrink-0 px-4 py-1.5 bg-blue-500/5 hover:bg-blue-500 text-blue-600 dark:text-blue-400 hover:text-white border border-blue-500/20 rounded-full text-xs font-bold transition-all whitespace-nowrap active:scale-95"
+              >
+                {q}
+              </motion.button>
+            ))}
+          </div>
+        )}
+
         {selectedImage && (
           <div className="mb-3 relative inline-block">
             <img src={selectedImage} alt="Preview" className="w-16 h-16 object-cover rounded-xl border-2 border-blue-500 shadow-lg" />
