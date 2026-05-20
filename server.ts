@@ -21,16 +21,24 @@ const supabaseKey =
 const isServiceRole = !!(process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ES Module __dirname and __filename fix
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// CJS / ESM compatibility for paths
+const _filename = (typeof import.meta !== 'undefined' && import.meta.url) 
+  ? fileURLToPath(import.meta.url) 
+  : '';
 
+const _dirname = _filename 
+  ? path.dirname(_filename) 
+  : process.cwd();
+
+const app = express();
+
+async function startServer() {
   // --- Production setup: Path detection ---
   const getDistPath = () => {
     const paths = [
       path.join(process.cwd(), 'dist'),
-      path.join(__dirname, 'dist'),
-      path.join(__dirname, '..', 'dist')
+      path.join(_dirname, 'dist'),
+      path.join(_dirname, '..', 'dist')
     ];
     
     console.log(`[Server] Checking dist paths in order: ${JSON.stringify(paths)}`);
@@ -56,14 +64,14 @@ const __dirname = path.dirname(__filename);
   console.log(`[Server] Dist path: ${distPath} (exists: ${fs.existsSync(distPath)})`);
   console.log(`[Server] Index path: ${indexPath} (exists: ${fs.existsSync(indexPath)})`);
   console.log(`[Server] Working dir: ${process.cwd()}`);
-  console.log(`[Server] __dirname: ${__dirname}`);
+  console.log(`[Server] __dirname (using _dirname): ${_dirname}`);
 
 
 // Multer setup for OMR scans
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Middlewares
-const app = express();
+// (Already defined app above)
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -146,18 +154,18 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       }
 
       let result;
-      // Primary model (gemini-3-flash-preview is the recommended default for basic text/Q&A)
+      // Primary model (Gemini 3.5 Flash is highly versatile and recommended for Q&A)
       try {
         result = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-3.5-flash",
           contents: requestContents,
           config: {
             systemInstruction: systemPrompt
           }
         });
       } catch (innerError: any) {
-        console.warn("[Chatbot API] Primary model (gemini-3-flash-preview) failed, trying fallback:", innerError.message);
-        // Fallback model (using common alias)
+        console.warn("[Chatbot API] Primary model (gemini-3.5-flash) failed, trying fallback 1 (gemini-flash-latest):", innerError.message);
+        // Fallback 1: Try general stable alias 'gemini-flash-latest'
         try {
           result = await ai.models.generateContent({
             model: "gemini-flash-latest",
@@ -166,9 +174,45 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
               systemInstruction: systemPrompt
             }
           });
-        } catch (fallbackError: any) {
-          console.error("[Chatbot API] Fallback model (gemini-flash-latest) also failed:", fallbackError.message);
-          throw fallbackError;
+        } catch (fallback1Error: any) {
+          console.warn("[Chatbot API] Fallback 1 (gemini-flash-latest) failed, trying fallback 2 (gemini-3.1-flash-lite):", fallback1Error.message);
+          // Fallback 2: Try lightweight 'gemini-3.1-flash-lite'
+          try {
+            result = await ai.models.generateContent({
+              model: "gemini-3.1-flash-lite",
+              contents: requestContents,
+              config: {
+                systemInstruction: systemPrompt
+              }
+            });
+          } catch (fallback2Error: any) {
+            console.warn("[Chatbot API] Fallback 2 (gemini-3.1-flash-lite) failed, trying fallback 3 (gemini-3-flash-preview):", fallback2Error.message);
+            // Fallback 3: Try 'gemini-3-flash-preview'
+            try {
+              result = await ai.models.generateContent({
+                model: "gemini-3-flash-preview",
+                contents: requestContents,
+                config: {
+                  systemInstruction: systemPrompt
+                }
+              });
+            } catch (fallback3Error: any) {
+              console.warn("[Chatbot API] Fallback 3 (gemini-3-flash-preview) failed, trying fallback 4 (gemini-2.0-flash):", fallback3Error.message);
+              // Fallback 4: Try 'gemini-2.0-flash' as a last resort
+              try {
+                result = await ai.models.generateContent({
+                  model: "gemini-2.0-flash",
+                  contents: requestContents,
+                  config: {
+                    systemInstruction: systemPrompt
+                  }
+                });
+              } catch (fallback4Error: any) {
+                console.error("[Chatbot API] All models failed. Final error:", fallback4Error.message);
+                throw fallback4Error;
+              }
+            }
+          }
         }
       }
 
@@ -181,8 +225,20 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       console.error("[Chatbot API Error]:", error);
       const errorMessage = error.message || String(error);
       
-      if (errorMessage.includes("429") || errorMessage.includes("Quota")) {
-        return res.status(429).json({ error: "Daily limit reached. Please try again tomorrow." });
+      const isRateLimit = errorMessage.includes("429") || errorMessage.includes("Quota") || errorMessage.includes("RESOURCE_EXHAUSTED");
+      const isHighDemand = errorMessage.includes("503") || errorMessage.includes("demand") || errorMessage.includes("UNAVAILABLE");
+
+      if (isRateLimit || isHighDemand) {
+        // More descriptive error for users
+        let msg = "Daily AI quota reached for this key. Please try again tomorrow or use a different API key.";
+        
+        if (isHighDemand) {
+          msg = "The AI is currently experiencing very high demand. Please try again in 5-10 minutes.";
+        } else if (errorMessage.includes("PerMinute")) {
+          msg = "The AI is temporarily busy. Please wait about 30-60 seconds and try again.";
+        }
+        
+        return res.status(isHighDemand ? 503 : 429).json({ error: msg });
       }
       
       return res.status(500).json({ error: errorMessage });
@@ -779,9 +835,8 @@ app.all("/api/omr", async (req, res) => {
   // Skip this on Vercel as vercel.json rewrites handle it natively
   if (!process.env.VERCEL) {
     app.use((req, res, next) => {
-      // Only handle GET requests that don't start with /api/
-      // Modified to be more inclusive of paths like /olympiad
-      if (req.method !== 'GET' || req.path.startsWith('/api/')) {
+      // Only handle GET requests that don't start with /api
+      if (req.method !== 'GET' || req.path.startsWith('/api')) {
         return next();
       }
 
@@ -811,7 +866,7 @@ app.all("/api/omr", async (req, res) => {
 
   // FINAL CATCH-ALL for any missed API requests or non-GET requests
   // This prevents HTML responses for failed POST/PUT/DELETE calls
-  app.all(/^\/api\/.*/, (req, res) => {
+  app.all(/^\/api(\/.*)?$/, (req, res) => {
     if (res.headersSent) return;
     console.log(`[Server] 404 Catch-all (API): ${req.method} ${req.url}`);
     res.status(404).json({ error: "API Route Not Found", path: req.path });
@@ -821,7 +876,7 @@ app.all("/api/omr", async (req, res) => {
   app.use((req, res) => {
     if (res.headersSent) return;
     console.log(`[Server] 404 Catch-all (Final): ${req.method} ${req.url}`);
-    if (req.path.startsWith('/api/')) {
+    if (req.path.startsWith('/api')) {
         res.status(404).json({ error: "Not Found", path: req.path });
     } else {
         res.status(404).send("Not Found");
@@ -845,6 +900,11 @@ app.all("/api/omr", async (req, res) => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   }
+}
+
+startServer().catch(err => {
+  console.error("Failed to start server:", err);
+});
 
 // Global process handlers
 process.on('unhandledRejection', (reason) => {

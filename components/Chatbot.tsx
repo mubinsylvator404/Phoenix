@@ -279,7 +279,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
         * Group Exam: 11:40 AM – 12:10 PM
         * Break: 12:10 PM – 12:30 PM
         * Guideline & QNA: 12:30 PM – 2:30 PM
-        * Result Publish & Prize Giving: 2:30 PM – 4:00 PM`;
+        * Result Publish & Prize Giving: 2:30 PM – 4:00 PM
+      - GROUP EXAM PARTICIPATION RULES:
+        * Participation: Students can participate in groups of 2–3 members.
+        * Institution Rule: All members must be from the SAME SCHOOL/COLLEGE.
+        * Class/Group Rule: Students do NOT need to be from the same class or group (mix of Class 9, 10, SSC 2026 is allowed).
+        * Multiple Groups: Multiple groups from the same school can participate.
+        * Official Ranking: If multiple groups from the same school participate, ONLY the highest-scoring group from that institution will be officially counted for leaderboard ranking and prizes.`;
 
       const aiResponse = await fetch('/api/chatbot', {
         method: 'POST',
@@ -292,12 +298,26 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, knowledge, teachers,
       });
 
       if (!aiResponse.ok) {
-        const errorData = await aiResponse.json();
-        throw new Error(errorData.error || 'Failed to get response from AI');
+        const contentType = aiResponse.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await aiResponse.json();
+          throw new Error(errorData.error || `Server error: ${aiResponse.status}`);
+        } else {
+          const text = await aiResponse.text();
+          console.error("Non-JSON error response:", text.substring(0, 500));
+          throw new Error(`Server returned non-JSON response (${aiResponse.status}). The service might be temporarily unavailable.`);
+        }
       }
 
-      const data = await aiResponse.json();
-      return data.text + referral;
+      const contentType = aiResponse.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await aiResponse.json();
+        return data.text + referral;
+      } else {
+        const text = await aiResponse.text();
+        console.error("Non-JSON success response:", text.substring(0, 500));
+        throw new Error("Server returned an invalid response format. Please try again.");
+      }
 
     } catch (error) {
       console.error("Phoenix AI error details:", error);
