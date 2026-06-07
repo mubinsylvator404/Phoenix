@@ -296,9 +296,14 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
           body.id = 'default';
         }
 
+        // Handle possible NOT NULL category column constraint inside the live database for olympiad_resources
+        if (table === 'olympiad_resources') {
+          body.category = 'Olympiad';
+        }
+
         console.log(`[Olympiad POST] Saving to ${table}:`, JSON.stringify(body));
 
-        const { data, error } = await supabase.from(table).upsert(body).select();
+        let { data, error } = await supabase.from(table).upsert(body).select();
         
         if (error) {
           console.error(`[Olympiad DB Error] ${table}:`, JSON.stringify(error));
@@ -323,6 +328,20 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
               originalError: error.message 
             });
           }
+
+          // Fallback if the database does not have the "category" column (code 42703 is undefined_column)
+          if (table === 'olympiad_resources' && error.code === '42703' && 'category' in body) {
+            console.warn("[Olympiad] Retrying resource save without 'category' column due to undefined_column error");
+            const newBody = { ...body };
+            delete newBody.category;
+            const { data: retryData, error: retryError } = await supabase.from(table).upsert(newBody).select();
+            if (retryError) {
+              console.error("[Olympiad Resource Retry Error]:", retryError);
+              throw retryError;
+            }
+            return res.json({ success: true, data: retryData ? retryData[0] : null });
+          }
+
           throw error;
         }
         
