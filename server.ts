@@ -115,6 +115,53 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
     }
   });
 
+  // Endpoints to sync database schemas (e.g. from Admin Dashboard)
+  app.post("/api/health/sync-schema", async (req, res) => {
+    try {
+      const sqlPath = path.join(process.cwd(), 'supabase_schema.sql');
+      if (!fs.existsSync(sqlPath)) {
+        return res.status(404).json({ error: "SCHEMA_NOT_FOUND", message: "supabase_schema.sql not found on server" });
+      }
+      const sql = fs.readFileSync(sqlPath, 'utf8');
+      
+      const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
+      if (error) {
+        console.warn("[Schema Sync] exec_sql RPC failed, returning sql for manual execution:", error);
+        return res.status(400).json({ 
+          error: "RPC_MISSING", 
+          message: "The 'exec_sql' RPC is not defined in your Supabase database. You can copy the SQL script below and run it in your Supabase Dashboard SQL Editor.", 
+          sql 
+        });
+      }
+      return res.json({ success: true, message: "Schema synchronized successfully via RPC!" });
+    } catch (err: any) {
+      return res.status(500).json({ error: "INTERNAL_ERROR", message: err.message });
+    }
+  });
+
+  app.post("/api/health/sync-schema-olympiad", async (req, res) => {
+    try {
+      const sqlPath = path.join(process.cwd(), 'olympiad_db_schema.sql');
+      if (!fs.existsSync(sqlPath)) {
+        return res.status(404).json({ error: "SCHEMA_NOT_FOUND", message: "olympiad_db_schema.sql not found on server" });
+      }
+      const sql = fs.readFileSync(sqlPath, 'utf8');
+      
+      const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
+      if (error) {
+        console.warn("[Olympiad Schema Sync] exec_sql RPC failed, returning sql for manual execution:", error);
+        return res.status(400).json({ 
+          error: "RPC_MISSING", 
+          message: "The 'exec_sql' RPC is not defined in your Supabase database. You can copy the SQL script below and run it in your Supabase Dashboard SQL Editor.", 
+          sql 
+        });
+      }
+      return res.json({ success: true, message: "Olympiad schema synchronized successfully via RPC!" });
+    } catch (err: any) {
+      return res.status(500).json({ error: "INTERNAL_ERROR", message: err.message });
+    }
+  });
+
   // --- CHATBOT API (Secure Gemini Proxy) ---
   app.post("/api/chatbot", async (req, res) => {
     try {
@@ -247,6 +294,40 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
+  // --- LOCAL FILE FALLBACK DB HELPERS ---
+  const getLocalFallbackPath = (table: string) => {
+    return path.join(process.cwd(), `local_db_fallback_${table}.json`);
+  };
+
+  const readLocalFallback = (table: string): any[] => {
+    const filePath = getLocalFallbackPath(table);
+    if (!fs.existsSync(filePath)) {
+      return [];
+    }
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (e) {
+      console.error(`[Local DB Fallback] Error reading JSON file for ${table}:`, e);
+      return [];
+    }
+  };
+
+  const writeLocalFallback = (table: string, data: any[]) => {
+    const filePath = getLocalFallbackPath(table);
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    } catch (e) {
+      console.error(`[Local DB Fallback] Error writing JSON file for ${table}:`, e);
+    }
+  };
+
+  const isTableNotFoundError = (error: any) => {
+    if (!error) return false;
+    const code = String(error.code || '');
+    const msg = String(error.message || '');
+    return code === 'PGRST205' || code === '42P01' || msg.includes("Could not find the table") || msg.includes("does not exist") || msg.includes("relation");
+  };
+
   // --- 2. CONSOLIDATED OLYMPIAD API ---
   app.all("/api/olympiad", async (req, res) => {
     const { action, id, type } = req.query;
@@ -257,26 +338,46 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       resources: 'olympiad_resources',
       settings: 'olympiad_settings',
       speakers: 'olympiad_speakers',
-      videos: 'olympiad_videos'
+      videos: 'olympiad_videos',
+      participants: 'olympiad_participants'
     };
 
     const table = tableMap[type as keyof typeof tableMap] || 'olympiad_events';
 
     try {
       if (method === 'GET') {
-        const query = supabase.from(table).select('*');
-        
-        // Handle tables without created_at
-        if (table !== 'olympiad_settings') {
-          query.order('created_at', { ascending: false });
+        let queryResult;
+        try {
+          const query = supabase.from(table).select('*');
+          
+          // Handle tables without created_at
+          if (table !== 'olympiad_settings') {
+            query.order('created_at', { ascending: false });
+          }
+          
+          queryResult = await query;
+        } catch (queryErr) {
+          console.warn(`[Olympiad GET Catch] Table ${table} select caught error, falling back locally:`, queryErr);
+          queryResult = { error: queryErr, data: null };
+        }
+
+        if (queryResult.error && isTableNotFoundError(queryResult.error)) {
+          console.log(`[Olympiad GET Fallback] Detected missing table ${table}, serving from local JSON store`);
+          let localData = readLocalFallback(table);
+          if (table !== 'olympiad_settings') {
+            localData.sort((a, b) => {
+              const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return dateB - dateA;
+            });
+          }
+          return res.json({ success: true, data: localData });
+        } else if (queryResult.error) {
+          console.error(`[Olympiad GET Error] ${table}:`, queryResult.error);
+          throw queryResult.error;
         }
         
-        const { data, error } = await query;
-        if (error) {
-          console.error(`[Olympiad GET Error] ${table}:`, error);
-          throw error;
-        }
-        return res.json({ success: true, data: data || [] });
+        return res.json({ success: true, data: queryResult.data || [] });
       }
 
       if (method === 'POST') {
@@ -303,9 +404,36 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
 
         console.log(`[Olympiad POST] Saving to ${table}:`, JSON.stringify(body));
 
-        let { data, error } = await supabase.from(table).upsert(body).select();
-        
-        if (error) {
+        let upsertResult;
+        try {
+          upsertResult = await supabase.from(table).upsert(body).select();
+        } catch (upsertErr) {
+          console.warn(`[Olympiad POST Catch] Table ${table} upsert caught error, falling back locally:`, upsertErr);
+          upsertResult = { error: upsertErr, data: null };
+        }
+
+        if (upsertResult.error && isTableNotFoundError(upsertResult.error)) {
+          console.log(`[Olympiad POST Fallback] Detected missing table ${table}, saving to local JSON store`);
+          const localData = readLocalFallback(table);
+          
+          if (!body.id) {
+            body.id = 'fallback-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+          }
+          if (!body.created_at) {
+            body.created_at = new Date().toISOString();
+          }
+
+          const existingIdx = localData.findIndex(item => item.id === body.id);
+          if (existingIdx !== -1) {
+            localData[existingIdx] = { ...localData[existingIdx], ...body };
+          } else {
+            localData.push(body);
+          }
+          
+          writeLocalFallback(table, localData);
+          return res.json({ success: true, data: body });
+        } else if (upsertResult.error) {
+          const error = upsertResult.error;
           console.error(`[Olympiad DB Error] ${table}:`, JSON.stringify(error));
           
           // If specific columns fail, try saving without them for settings
@@ -345,6 +473,7 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
           throw error;
         }
         
+        const data = upsertResult.data;
         if (!data || data.length === 0) {
            console.warn("[Olympiad POST] Upsert succeeded but returned no data");
            return res.json({ success: true, data: body });
@@ -354,9 +483,45 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       }
 
       if (method === 'DELETE') {
+        const { olympiad_id } = req.query;
+        if (id === 'all' && olympiad_id) {
+          let deleteResult;
+          try {
+            deleteResult = await supabase.from(table).delete().eq('olympiad_id', olympiad_id);
+          } catch (delErr) {
+            deleteResult = { error: delErr };
+          }
+          if (deleteResult.error && isTableNotFoundError(deleteResult.error)) {
+            let localData = readLocalFallback(table);
+            localData = localData.filter(item => item.olympiad_id !== olympiad_id);
+            writeLocalFallback(table, localData);
+            return res.json({ success: true });
+          } else if (deleteResult.error) {
+            throw deleteResult.error;
+          }
+          return res.json({ success: true });
+        }
+
         if (!id) return res.status(400).json({ success: false, error: 'Missing ID' });
-        const { error } = await supabase.from(table).delete().eq('id', id);
-        if (error) throw error;
+        
+        let deleteResult;
+        try {
+          deleteResult = await supabase.from(table).delete().eq('id', id);
+        } catch (delErr) {
+          console.warn(`[Olympiad DELETE Catch] Table ${table} delete caught error, falling back locally:`, delErr);
+          deleteResult = { error: delErr };
+        }
+
+        if (deleteResult.error && isTableNotFoundError(deleteResult.error)) {
+          console.log(`[Olympiad DELETE Fallback] Detected missing table ${table}, deleting from local JSON store`);
+          let localData = readLocalFallback(table);
+          localData = localData.filter(item => item.id !== id);
+          writeLocalFallback(table, localData);
+          return res.json({ success: true });
+        } else if (deleteResult.error) {
+          throw deleteResult.error;
+        }
+        
         return res.json({ success: true });
       }
 
@@ -370,6 +535,256 @@ app.get("/api/health/ping", (req, res) => res.json({ status: "pong", time: new D
       });
     }
   });
+
+  // --- Google Sheets Sync endpoint for Olympiad Certificates ---
+  app.post("/api/olympiad-sync-sheet", async (req, res) => {
+    try {
+      const { sheetUrl, olympiadId } = req.body;
+      if (!sheetUrl) return res.status(400).json({ success: false, error: "Missing sheetUrl" });
+      if (!olympiadId) return res.status(400).json({ success: false, error: "Missing olympiadId" });
+
+      // Extract Spreadsheet ID from Google Sheet URL
+      let spreadsheetId = sheetUrl;
+      if (sheetUrl.includes("docs.google.com/spreadsheets")) {
+        const match = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (match) spreadsheetId = match[1];
+      }
+
+      // Export sheet as CSV directly to extract cellular information easily without Auth hurdles
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+      console.log(`[Olympiad Sheet Sync] Fetching spreadsheet from export: ${exportUrl}`);
+      
+      const response = await fetch(exportUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch spreadsheet. Please ensure the sheet is shared as "Anyone with the link can view" under Google Sheets share options.`);
+      }
+
+      const csvText = await response.text();
+      // Simple custom CSV parser supporting multiline blocks or cells with quotes
+      const rows = parseCSVText(csvText);
+      
+      if (rows.length < 2) {
+        return res.status(422).json({ success: false, error: "Spreadsheet contains no data rows or column fields" });
+      }
+
+      // Clean header values and search map index placement
+      const headers = rows[0].map(h => h.trim().toLowerCase());
+      
+      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('student') || h.includes('নাম') || h.includes('ফুল নাম'));
+      const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile') || h.includes('contact') || h.includes('ফোন') || h.includes('মোবাইল'));
+      const emailIdx = headers.findIndex(h => h.includes('email') || h.includes('mail') || h.includes('ইমেইল'));
+      const rollIdx = headers.findIndex(h => h.includes('roll') || h.includes('reg') || h.includes('id') || h.includes('রোল') || h.includes('আইডি'));
+      const statusIdx = headers.findIndex(h => h.includes('status') || h.includes('type') || h.includes('অবস্থা') || h.includes('টাইপ') || h.includes('পদবী'));
+      const rankIdx = headers.findIndex(h => h.includes('rank') || h.includes('place') || h.includes('position') || h.includes('র‍্যাংক') || h.includes('স্থান'));
+      const instIdx = headers.findIndex(h => h.includes('institution') || h.includes('school') || h.includes('college') || h.includes('প্রতিষ্ঠান') || h.includes('স্কুল') || h.includes('university') || h.includes('ভার্সিটি'));
+      const certCodeIdx = headers.findIndex(h => h.includes('cert') || h.includes('code') || h.includes('certificate') || h.includes('সার্টিফিকেট'));
+      const classIdx = headers.findIndex(h => h.includes('class') || h.includes('শ্রেণী') || h.includes('শ্রেণি'));
+      const groupIdx = headers.findIndex(h => h.includes('group') || h.includes('গ্রুপ'));
+
+      if (nameIdx === -1) {
+        return res.status(422).json({ success: false, error: "Could not find a 'Name' or 'Student' column in the header row" });
+      }
+
+      // Load current participants for this event to avoid changing pre-existing certificate_ids
+      let existingParticipants: any[] = [];
+      try {
+        const { data } = await supabase.from('olympiad_participants').select('*').eq('olympiad_id', olympiadId);
+        if (data) {
+          existingParticipants = data;
+        }
+      } catch (e) {
+        console.warn("[Olympiad Sync ID Stability] Could not query database for existing participants:", e);
+      }
+      if (existingParticipants.length === 0) {
+        existingParticipants = readLocalFallback('olympiad_participants').filter((p: any) => p.olympiad_id === olympiadId);
+      }
+
+      const existingCertMap = new Map<string, string>();
+      existingParticipants.forEach((p: any) => {
+        if (p.certificate_id) {
+          const k1 = `${p.name || ''}_${p.roll || ''}_${p.phone || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          const k2 = `${p.name || ''}_${p.roll || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          const k3 = `${p.name || ''}_${p.phone || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (k1) existingCertMap.set(k1, p.certificate_id);
+          if (k2) existingCertMap.set(k2, p.certificate_id);
+          if (k3) existingCertMap.set(k3, p.certificate_id);
+        }
+      });
+
+      const generateStableId = (name: string, roll: string, phone: string): string => {
+        const normName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normRoll = roll.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normPhone = phone.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        const seed = `${olympiadId}-${normName}-${normRoll}-${normPhone}`;
+        let hash = 0;
+        for (let j = 0; j < seed.length; j++) {
+          const char = seed.charCodeAt(j);
+          hash = (hash << 5) - hash + char;
+          hash = hash & hash;
+        }
+        const codeNum = 100000 + (Math.abs(hash) % 900000);
+        return `PSO-${new Date().getFullYear()}-${codeNum}`;
+      };
+
+      const participantsToInsert = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row[nameIdx] || !row[nameIdx].trim()) continue;
+
+        const studName = row[nameIdx].trim();
+        const studPhone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx].trim() : '';
+        const studRoll = rollIdx !== -1 && row[rollIdx] ? row[rollIdx].trim() : String(100 + i);
+
+        // Check pre-existing map first to ensure stability!
+        const lookupK1 = `${studName}_${studRoll}_${studPhone}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const lookupK2 = `${studName}_${studRoll}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const lookupK3 = `${studName}_${studPhone}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        let customCode = '';
+        if (certCodeIdx !== -1 && row[certCodeIdx] && row[certCodeIdx].trim()) {
+          customCode = row[certCodeIdx].trim();
+        } else if (existingCertMap.has(lookupK1)) {
+          customCode = existingCertMap.get(lookupK1)!;
+        } else if (existingCertMap.has(lookupK2)) {
+          customCode = existingCertMap.get(lookupK2)!;
+        } else if (existingCertMap.has(lookupK3)) {
+          customCode = existingCertMap.get(lookupK3)!;
+        } else {
+          customCode = generateStableId(studName, studRoll, studPhone);
+        }
+
+        // Intelligent status construction combining class and group
+        let statusVal = 'Contestant';
+        if (statusIdx !== -1 && row[statusIdx]) {
+          statusVal = row[statusIdx].trim();
+        } else {
+          const classVal = classIdx !== -1 && row[classIdx] ? `Class ${row[classIdx].trim()}` : '';
+          const groupVal = groupIdx !== -1 && row[groupIdx] ? `Group ${row[groupIdx].trim()}` : '';
+          if (classVal && groupVal) {
+            statusVal = `Contestant (${classVal}, ${groupVal})`;
+          } else if (classVal) {
+            statusVal = `Contestant (${classVal})`;
+          } else if (groupVal) {
+            statusVal = `Contestant (${groupVal})`;
+          }
+        }
+
+        participantsToInsert.push({
+          olympiad_id: olympiadId,
+          name: studName,
+          phone: studPhone || null,
+          email: emailIdx !== -1 && row[emailIdx] ? row[emailIdx].trim() : null,
+          roll: studRoll,
+          status: statusVal,
+          rank: rankIdx !== -1 && row[rankIdx] ? row[rankIdx].trim() : null,
+          institution: instIdx !== -1 && row[instIdx] ? row[instIdx].trim() : null,
+          certificate_id: customCode
+        });
+      }
+
+      console.log(`[Olympiad Sheet Sync] Parsed ${participantsToInsert.length} participants to import`);
+
+      // Avoid duplication by deleting older references of this event ID first
+      let deleteError = null;
+      try {
+        const resDel = await supabase.from('olympiad_participants').delete().eq('olympiad_id', olympiadId);
+        deleteError = resDel.error;
+      } catch (delErr) {
+        deleteError = delErr;
+      }
+
+      let isSheetLocalFallback = false;
+      if (deleteError && isTableNotFoundError(deleteError)) {
+        isSheetLocalFallback = true;
+        console.log("[Olympiad Sync delete fallback] Table 'olympiad_participants' missing; switching directly to local store fallback");
+        let localData = readLocalFallback('olympiad_participants');
+        localData = localData.filter(p => p.olympiad_id !== olympiadId);
+        
+        // Add parsed student rows
+        for (let i = 0; i < participantsToInsert.length; i++) {
+          const participant = participantsToInsert[i];
+          if (!participant.id) {
+            participant.id = 'fallback-part-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now() + '-' + i;
+          }
+          localData.push(participant);
+        }
+        writeLocalFallback('olympiad_participants', localData);
+      } else if (deleteError) {
+        console.warn("[Olympiad Sync deleteWarning]:", deleteError);
+      }
+
+      let insertedCount = participantsToInsert.length;
+
+      if (!isSheetLocalFallback) {
+        // Upsert/Insert records in bulk
+        let bulkResult;
+        try {
+          bulkResult = await supabase.from('olympiad_participants').insert(participantsToInsert).select();
+        } catch (insertErr) {
+          bulkResult = { error: insertErr, data: null };
+        }
+
+        if (bulkResult.error) {
+          if (isTableNotFoundError(bulkResult.error)) {
+            console.log("[Olympiad Sync insert fallback] Table 'olympiad_participants' missing; saving to local store");
+            let localData = readLocalFallback('olympiad_participants');
+            localData = localData.filter(p => p.olympiad_id !== olympiadId);
+            
+            for (let i = 0; i < participantsToInsert.length; i++) {
+              const participant = participantsToInsert[i];
+              participant.id = 'fallback-part-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now() + '-' + i;
+              localData.push(participant);
+            }
+            writeLocalFallback('olympiad_participants', localData);
+          } else {
+            console.error("[Olympiad Bulk Insert Error]:", bulkResult.error);
+            throw bulkResult.error;
+          }
+        } else {
+          insertedCount = bulkResult.data?.length || participantsToInsert.length;
+        }
+      }
+
+      return res.json({ 
+        success: true, 
+        count: insertedCount,
+        message: `Successfully synchronized ${insertedCount} participants from spreadsheet!` 
+      });
+
+    } catch (err: any) {
+      console.error("[Olympiad Sheet Sync Server error]:", err);
+      return res.status(500).json({ success: false, error: err.message || "Spreadsheet sync failed" });
+    }
+  });
+
+  // Custom parser helper to safely read cells and characters enclosed in quotes
+  function parseCSVText(text: string): string[][] {
+    const lines = text.split(/\r?\n/);
+    const rows: string[][] = [];
+    
+    for (let line of lines) {
+      if (!line.trim()) continue;
+      const row: string[] = [];
+      let insideQuote = false;
+      let currentCell = "";
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          insideQuote = !insideQuote;
+        } else if (char === ',' && !insideQuote) {
+          row.push(currentCell.replace(/^"|"$/g, '').trim());
+          currentCell = "";
+        } else {
+          currentCell += char;
+        }
+      }
+      row.push(currentCell.replace(/^"|"$/g, '').trim());
+      rows.push(row);
+    }
+    return rows;
+  }
 
   // --- 3. DIRECT ATTENDANCE API ---
   app.post("/api/attendance", async (req, res) => {

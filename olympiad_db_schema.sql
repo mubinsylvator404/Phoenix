@@ -167,3 +167,33 @@ END $$;
 -- For simplicity in this environment, we often allow all authenticated if it's meant for the app.
 -- But standard practice:
 -- CREATE POLICY "Admin write olympiad_events" ON olympiad_events FOR ALL USING (auth.role() = 'service_role');
+
+-- Olympiad Participants/Certificates table (Synced from Google Sheets)
+CREATE TABLE IF NOT EXISTS olympiad_participants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  olympiad_id UUID REFERENCES olympiad_events(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  roll TEXT,
+  status TEXT, -- e.g. contestant, winner, runner-up, merit etc.
+  rank TEXT, -- e.g. 1st, 2nd, etc.
+  institution TEXT,
+  certificate_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS for olympiad_participants
+ALTER TABLE olympiad_participants ENABLE ROW LEVEL SECURITY;
+
+-- Policies for public reading and writing of participants
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public read olympiad_participants') THEN
+        CREATE POLICY "Public read olympiad_participants" ON olympiad_participants FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public all olympiad_participants') THEN
+        CREATE POLICY "Public all olympiad_participants" ON olympiad_participants FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
